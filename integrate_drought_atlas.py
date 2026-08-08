@@ -336,9 +336,9 @@ def export_geojson_enriched(df):
         safe_date = str(date).replace(":", "-").replace("/", "-")
         out_path = GEOJSON_DIR / f"drought_risk_{region}_{safe_date}.geojson"
         with open(out_path, "w") as f:
-            json.dump(fc, f, separators=(",", ":"))  # compact, no indent — saves ~60% size
+            json.dump(fc, f, separators=(",", ":"))  # compact, no indent - saves ~60% size
         size_mb = out_path.stat().st_size / 1e6
-        print(f"  Exported {len(features)} cells → {out_path.name} ({size_mb:.1f} MB)")
+        print(f"  Exported {len(features)} cells -> {out_path.name} ({size_mb:.1f} MB)")
 
 
 # ---------------------------------------------------------------------------
