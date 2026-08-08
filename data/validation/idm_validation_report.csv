@@ -1,0 +1,9 @@
+District,mean_model_risk,cell_count,district_key,district,state,state_id,none_pct,d0_pct,d1_pct,d2_pct,d3_pct,d4_pct,drought_pct,idm_dominant_class,idm_weighted_score,model_cdi_class,model_cdi_ordinal,idm_cdi_ordinal
+Aurangabad,0.10864652576907216,1940,Aurangabad,Aurangabad,Maharashtra,21,80.4,0.0,19.6,0.0,0,0,19.6,None,0.07840000000000001,D0,1,0
+Beed,0.17931314493127148,2910,Beed,Beed,Maharashtra,21,47.1,17.6,35.3,0.0,0,0,52.9,None,0.1764,D0,1,0
+Hingoli,0.24244355747768653,2801,Hingoli,Hingoli,Maharashtra,21,23.3,23.3,53.5,0.0,0,0,76.7,D1,0.2606,D0,1,2
+Jalna,0.22756225275152864,1799,Jalna,Jalna,Maharashtra,21,41.1,5.4,46.4,7.1,0,0,58.9,D1,0.239,D0,1,2
+Latur,0.03875286182174557,3380,Latur,Latur,Maharashtra,21,85.2,14.8,0.0,0.0,0,0,14.8,None,0.029600000000000005,None,0,0
+Nanded,0.024911747624195228,6331,Nanded,Nanded,Maharashtra,21,94.2,5.8,0.0,0.0,0,0,5.8,None,0.0116,None,0,0
+Osmanabad,0.24032876366715758,3395,Osmanabad,Osmanabad,Maharashtra,21,0.0,72.2,27.8,0.0,0,0,100.0,D0,0.25560000000000005,D0,1,1
+Parbhani,0.22064636778169014,1420,Parbhani,Parbhani,Maharashtra,21,55.8,0.0,3.8,40.4,0,0,44.2,None,0.2576,D0,1,0

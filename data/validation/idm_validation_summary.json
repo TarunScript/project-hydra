@@ -1,0 +1,18 @@
+{
+  "comparison_date_model": "2024-11-01",
+  "idm_data_file": "c:\\Users\\riyav\\project-hydra\\data\\labels\\idm_marathwada_latest.csv",
+  "districts_matched": 8,
+  "districts_total_idm": 8,
+  "exact_class_match": 3,
+  "within_one_class": 8,
+  "spearman_r": 0.9286,
+  "spearman_p": 0.0009,
+  "mae_risk_score": 0.0172,
+  "rmse_risk_score": 0.0201,
+  "caveats": [
+    "Synthetic labels \u2014 model trained on features, not real CDI.",
+    "IDM is district-level; model predictions aggregated from cell-level.",
+    "District assignment is pseudo-random heuristic, not shapefile-based.",
+    "Temporal mismatch possible between IDM observation week and model date."
+  ]
+}

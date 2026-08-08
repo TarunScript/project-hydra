@@ -382,7 +382,7 @@ def main():
     print("\n--- Regenerating GeoJSON files (with Atlas fields, compact format) ---")
     export_geojson_enriched(enriched)
 
-    print("\n✅ India Drought Atlas integration complete.")
+    print("\nIndia Drought Atlas integration complete.")
     print("   GeoJSON files now include: atlas_spi_score, atlas_drought_category, atlas_percentile")
 
 
