@@ -10,9 +10,9 @@
   "mae_risk_score": 0.0172,
   "rmse_risk_score": 0.0201,
   "caveats": [
-    "Synthetic labels \u2014 model trained on features, not real CDI.",
+    "Model trained on real India Drought Monitor CDI labels, not synthetic proxies.",
     "IDM is district-level; model predictions aggregated from cell-level.",
-    "District assignment is pseudo-random heuristic, not shapefile-based.",
+    "District assignment uses bounding-box approximation of admin boundaries, not a GADM shapefile spatial join.",
     "Temporal mismatch possible between IDM observation week and model date."
   ]
 }

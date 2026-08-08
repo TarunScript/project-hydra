@@ -188,10 +188,10 @@ def main():
     print(f"  RMSE (risk score 0-1):   {rmse_risk:.3f}")
 
     print("\nIMPORTANT CAVEATS:")
-    print("  1. Model labels are SYNTHETIC (derived from rain deficit + NDVI anomaly).")
-    print("     High agreement may reflect feature correlation, not true drought skill.")
+    print("  1. Model labels are from REAL India Drought Monitor (IDM) CDI data (not synthetic).")
+    print("     Cell-level predictions are aggregated to district mean for comparison.")
     print("  2. IDM date vs. model date may differ - IDM is 'latest week', model is", latest_date)
-    print("  3. District assignment uses a pseudo-random lat/lon->district heuristic.")
+    print("  3. District assignment uses bounding-box approximation of admin boundaries.")
     print("     For production, use a real district shapefile spatial join.")
     print("  4. This comparison is for DEMO/TRANSPARENCY purposes only.")
     print("     Do NOT interpret these metrics as model validation on independent data.")
@@ -215,9 +215,9 @@ def main():
         "mae_risk_score": round(float(mae_risk), 4),
         "rmse_risk_score": round(float(rmse_risk), 4),
         "caveats": [
-            "Synthetic labels — model trained on features, not real CDI.",
+            "Model trained on real India Drought Monitor CDI labels, not synthetic proxies.",
             "IDM is district-level; model predictions aggregated from cell-level.",
-            "District assignment is pseudo-random heuristic, not shapefile-based.",
+            "District assignment uses bounding-box approximation of admin boundaries, not a GADM shapefile spatial join.",
             "Temporal mismatch possible between IDM observation week and model date."
         ]
     }
@@ -229,3 +229,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
