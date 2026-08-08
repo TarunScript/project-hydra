@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.venv/
+venv/
+
+# GEE credentials
+~/.config/earthengine/
+
+# Large data files — do not push to git
+data/drought_features_marathwada_*.csv
+data/drought_projections.csv
+data/drought_projections_atlas_enriched.csv
+data/atlas_cache/
+
+# GeoJSON outputs — too large for git (30MB each)
+output/geojson/
+
+# Keep model artifacts and validation outputs
+# models/drought_xgb_model.json  ← DO push this
+# data/drought_features_labeled.csv ← DO push this
+# data/validation/ ← DO push this
+# data/labels/ ← DO push this
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db

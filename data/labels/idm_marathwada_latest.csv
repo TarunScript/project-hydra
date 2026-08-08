@@ -1,0 +1,9 @@
+district,state,state_id,none_pct,d0_pct,d1_pct,d2_pct,d3_pct,d4_pct,drought_pct
+Aurangabad,Maharashtra,21,80.4,0,19.6,0,0,0,19.6
+Beed,Maharashtra,21,47.1,17.6,35.3,0,0,0,52.9
+Hingoli,Maharashtra,21,23.3,23.3,53.5,0,0,0,76.7
+Jalna,Maharashtra,21,41.1,5.4,46.4,7.1,0,0,58.9
+Latur,Maharashtra,21,85.2,14.8,0,0,0,0,14.8
+Nanded,Maharashtra,21,94.2,5.8,0,0,0,0,5.8
+Osmanabad,Maharashtra,21,0,72.2,27.8,0,0,0,100
+Parbhani,Maharashtra,21,55.8,0,3.8,40.4,0,0,44.2

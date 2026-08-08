@@ -1,0 +1,50 @@
+{
+    "training_date": "2026-08-09T01:02:48.276601",
+    "features": [
+        "bare_ground_frac",
+        "cropland_frac",
+        "dry_spell_days",
+        "et_current_kg_m2",
+        "lst_anomaly_c",
+        "lst_current_c",
+        "ndvi_anomaly",
+        "ndvi_current",
+        "rain_30d_deficit_mm",
+        "rain_30d_mm",
+        "rain_60d_deficit_mm",
+        "rain_60d_mm",
+        "rain_7d_deficit_mm",
+        "rain_7d_mm",
+        "rain_90d_deficit_mm",
+        "rain_90d_mm",
+        "sm_rootzone",
+        "sm_surface",
+        "urban_built_frac"
+    ],
+    "metrics": {
+        "rmse": 0.03075019491032133,
+        "mae": 0.014025158528176264,
+        "r2": 0.9918010847591603
+    },
+    "feature_importances_gain": {
+        "rain_90d_deficit_mm": 7.338664531707764,
+        "ndvi_anomaly": 1.4254094362258911,
+        "rain_60d_deficit_mm": 0.6378569602966309,
+        "lst_anomaly_c": 0.06536120176315308,
+        "rain_30d_mm": 0.0114135118201375,
+        "rain_7d_mm": 0.0067789251916110516,
+        "sm_rootzone": 0.0065393708646297455,
+        "rain_7d_deficit_mm": 0.005963634233921766,
+        "rain_30d_deficit_mm": 0.005912457127124071,
+        "rain_90d_mm": 0.005902890581637621,
+        "ndvi_current": 0.0056981854140758514,
+        "rain_60d_mm": 0.005677341483533382,
+        "sm_surface": 0.005603863392025232,
+        "urban_built_frac": 0.005554163828492165,
+        "lst_current_c": 0.0051942565478384495,
+        "cropland_frac": 0.004859821405261755,
+        "et_current_kg_m2": 0.004523692186921835,
+        "dry_spell_days": 0.004466657061129808,
+        "bare_ground_frac": 0.0034051304683089256
+    }
+}

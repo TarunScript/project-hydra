@@ -1,0 +1,331 @@
+# India Flood, Drought & Water-Scarcity Early Warning System
+### Hackathon Implementation Plan & Technical Documentation
+
+**Team size:** 4 | **Time budget:** 24 hours | **Scope:** India, 2–3 demo regions | **Tools:** Claude Opus 4.6, Google Earth Engine
+
+## Scope Lock — read this before writing any code
+
+We are building a **risk-index model per grid cell** (tabular ML: XGBoost/Random Forest → a 0–1 risk score, rendered as a colored map cell), **not** a pixel-level raster segmentation model. This is scientifically legitimate (it's how real indices like SPI and flood-susceptibility maps work) and is achievable in 24 hours. Visually, on the map, it will look identical to a "predicted calamity map." If anyone on the team starts trying to train a true image-segmentation model from scratch tonight, stop — that's the single biggest risk to finishing.
+
+**Explicitly out of scope for this build:** Moon gravity / tidal-level data (relevant only to coastal storm-surge flooding, not the inland river-flood and drought case being built — revisit only if a coastal sub-case is added later). True pixel-level raster segmentation. Real SMS delivery to real residents (simulate the trigger + message, with an optional live demo to 1–2 verified test numbers). Live all-India coverage (go deep on 2–3 regions, not wide on 28 states).
+
+---
+
+## 1. Project Overview
+
+**Problem:** Predict flood and drought/water-scarcity risk across India, visualize it on a Google-Earth-style map with a historical/future timeline slider, and generate resident-facing alerts 7–15 days ahead of a predicted event so people can evacuate or store water.
+
+**Core decisions locked in from scoping discussion:**
+- Two separate models (flood, drought) — different signatures, different features, easier to train and explain than one combined model.
+- Output is a risk score per grid cell per day (5–10 km cells), not a segmented image.
+- Pick 2–3 demo regions with full pipeline + validation, rather than shallow all-India coverage. Suggested: one flood-prone (Assam, Bihar, or Kerala) + one drought-prone (Marathwada, Bundelkhand, or Rayalaseema). Final pick depends on which region's historical label data is cleanest — see Section 3.6.
+- "Real-time" = recomputed on a schedule (e.g., daily), not true streaming. This is the honest and expected standard for a hackathon build.
+- Flood forecast horizon (1/3/7/15 days) is driven by an actual weather forecast feed (Section 6) — not just historical data, which cannot predict the future by itself.
+- Drought "future" is framed honestly as trend + climatology projection, since skillful 60–90 day drought forecasts don't really exist even in production systems. Say this plainly in the pitch — judges respect honesty about model limits more than a hand-wave.
+
+---
+
+## 2. System Architecture
+
+Precompute risk for each demo region for a range of dates (past + projected future) and store as static JSON/GeoJSON per day. The timeline slider then just swaps which precomputed layer is displayed — this is far more demo-reliable than live inference on every slider drag, and just as impressive to watch.
+
+```
+DATA SOURCES → FEATURE PIPELINE → TWO ML MODELS → Risk score per cell, per day, 1/3/7/15-day projection → BACKEND API → FRONTEND
+```
+- Data sources: Google Earth Engine, Open-Meteo (forecast), IIT-GN / IIT-Delhi historical labels
+- Feature pipeline: Grid definition + per-cell feature CSV (Person A owns this)
+- Two ML models: Flood XGBoost/RF (Person B), Drought XGBoost/RF (Person C)
+- Backend API: serves precomputed risk grids + alerts (Person A, hr 8+)
+- Frontend: map + timeline slider + alert panel (Person D)
+
+---
+
+## 3. Datasets & APIs — Master Reference
+
+### 3.1 Rainfall
+
+| Purpose | Source | ID / Endpoint | Resolution & Cadence | Notes |
+|---|---|---|---|---|
+| Historical daily rainfall, 3/7-day accumulation, climatology baseline | CHIRPS (GEE) | `UCSB-CHG/CHIRPS/DAILY` (or newer `UCSB-CHC/CHIRPS/V3/DAILY_SAT`) | 0.05° (~5.5 km), daily, 1981–present | Best all-round source for historical accumulation features and drought rainfall-deficit calcs. |
+| Live/today's rainfall + 15-day forecast | Open-Meteo Forecast API | `api.open-meteo.com/v1/forecast` | ~1–11 km, hourly | This is the actual "live"/"future" rainfall source — free, no key, no rate-limit headaches. See Section 6. |
+| Sub-daily rainfall (1h/3h/6h) for historical training | GPM IMERG (GEE) | `NASA/GPM_L3/IMERG_V07` | 0.1° (~11 km), half-hourly | ⚠️ The Final-Run product has ~3.5 month latency — NOT suitable for "live" pulls. Use only for sub-daily historical training features; use Open-Meteo hourly for anything current. |
+
+### 3.2 Soil Moisture
+
+| Purpose | Source | ID | Resolution & Cadence |
+|---|---|---|---|
+| Surface and root-zone soil moisture (flood Tier-1 #5 and drought Tier-2 root-zone moisture) | NASA SMAP L4 (GEE) | `NASA/SMAP/SPL4SMGP/008`, bands `sm_surface`, `sm_rootzone` | ~9–11 km, every 3 hours |
+
+### 3.3 Terrain & Hydrology (static — compute once, reuse)
+
+| Purpose | Source | ID | Notes |
+|---|---|---|---|
+| Elevation | SRTM (GEE) | `USGS/SRTMGL1_003` | 30 m, static |
+| Slope | Computed from SRTM | `ee.Terrain.slope(dem)` | One line of code on the elevation image |
+| Flow accumulation (= upstream catchment area) | HydroSHEDS (GEE) | `WWF/HydroSHEDS/15ACC` (15 arc-sec, ~450 m) or `30ACC` (~900 m, lighter) | Static |
+| Drainage direction | HydroSHEDS (GEE) | `WWF/HydroSHEDS/15DIR` | Static |
+| River network (vector, distance-to-river) | HydroSHEDS (GEE) | `WWF/HydroSHEDS/v1/FreeFlowingRivers` | Compute distance from cell centroid to nearest line feature, or threshold flow accumulation to build a river mask and run a distance transform |
+| Watershed boundaries | HydroSHEDS (GEE) | `WWF/HydroSHEDS/v1/Basins/hybas_5` (levels 1–12 available, 5 is a reasonable mid-scale default) | Static |
+
+### 3.4 Vegetation, Temperature & Evapotranspiration
+
+| Purpose | Source | ID | Resolution & Cadence |
+|---|---|---|---|
+| NDVI/EVI (current + anomaly vs. climatology) | MODIS (GEE) | `MODIS/061/MOD13Q1` | 250 m, 16-day composite |
+| Land surface temperature (LST, anomaly) | MODIS (GEE) | `MODIS/061/MOD11A1` | 1 km, daily |
+| Evapotranspiration | MODIS (GEE) | `MODIS/061/MOD16A2GF` (gap-filled — use this, not `MOD16A2` which only covers 2021+) | 500 m, 8-day, 2000–present |
+
+### 3.5 SAR, Water Extent & Land Cover
+
+| Purpose | Source | ID | Resolution & Cadence | Notes |
+|---|---|---|---|---|
+| Flood extent detection (before/after change) | Sentinel-1 SAR GRD (GEE) | `COPERNICUS/S1_GRD`, IW mode, VV/VH | 10 m, ~6-day revisit | SAR penetrates cloud cover — critical because India's floods happen during monsoon, when optical satellites are clouded out. Standard method: compare pre-flood/post-flood mosaic (Otsu-threshold the difference) — search "UN-SPIDER Sentinel-1 flood mapping recommended practice." |
+| Existing/historical water extent baseline | JRC Global Surface Water (GEE) | `JRC/GSW1_4/GlobalSurfaceWater` (occurrence band) + `JRC/GSW1_4/MonthlyHistory` | 30 m, monthly, 1984–2021 | Good baseline for "what's normally water here" |
+| NDWI | Computed from Sentinel-2 SR | `COPERNICUS/S2_SR_HARMONIZED`, bands B3 (green) & B8 (NIR) → (Green−NIR)/(Green+NIR) | 10 m | One line of band math |
+| Land cover, urban/built-up % | Dynamic World (GEE) | `GOOGLE/DYNAMICWORLD/V1` | 10 m, 9 classes, updates every 2–5 days | Includes `built` and `water` bands — near-real-time, better than static land cover for this use case |
+| Groundwater / storage trend | GRACE (GEE) | `NASA/GRACE/MASS_GRIDS_V04/LAND` | ~300 km cells, monthly | ⚠️ Very coarse — regional/basin-level trend indicator, not a per-cell feature. Say this plainly if used. |
+
+### 3.6 India-specific historical labels — the hardest problem, mostly solved
+
+| Need | Source | Link | What it gives you |
+|---|---|---|---|
+| Flood labels — best option | India Flood Inventory-Impacts (IFI-Impacts), IIT Delhi | zenodo.org/doi/10.5281/zenodo.4742142 | IMD-sourced flood events 1967–2023, includes a ready District Flood Severity Index CSV — can be the flood label column directly |
+| Flood labels — event database with catchment attributes | INDOFLOODS, IIT Delhi | zenodo.org/records/14584655 | Discharge, peak level, event duration + catchment attributes per event, DOI-cited |
+| Flood labels — long-term simulated flood extent | India Flood Atlas, IIT Gandhinagar | indiafloodatlas.in · github.com/wcl-iitgn/india-flood-atlas-data | 10 km gridded annual max flooded area, 1901–2020 |
+| Flood labels — official state atlases (PDF, manual digitizing) | NDMA Flood Hazard Atlases | ndma.gov.in/flood-hazard-atlases | State-level flood hazard maps, validated by state disaster authorities — good for cross-checking, not bulk ML-ready |
+| Flood labels — global event archive with GIS/GeoTIFF maps | Dartmouth Flood Observatory | floodobservatory.colorado.edu | Individual India flood events since 1985 with downloadable extent maps |
+| Drought labels — best option, and it's live | India Drought Monitor, IIT Gandhinagar | indiadroughtmonitor.in | Live, weekly, district-level Combined Drought Index (5-class: D0 abnormally dry → D4 exceptional), downloadable, archive from July 2021–present |
+| Drought labels — long-term climatology for anomaly baselines | India Drought Atlas, IIT Gandhinagar | github.com/wcl-iitgn/india-drought-atlas-data | 0.05° gridded monthly precipitation & temperature, 1901–2021 |
+| Bonus — reservoir/dam context | GeoID (Geoportal of Indian Dams), IIT Gandhinagar | github.com/wcl-iitgn/geoid | 5,400+ Indian dams with catchment characteristics, land cover, flood risk assessment |
+| Live validation (not bulk historical) | CWC Flood Forecast Dashboard | aff.india-water.gov.in · cwc.gov.in/ffm_dashboard | Official 5–7 day flood advisories for 20 major river basins |
+
+**Recommendation:** Pick the 2–3 demo regions partly based on where these label sources have the best coverage — the Ganga/Brahmaputra basin states (Assam, Bihar) are unusually well-served by both IFI-Impacts and the India Flood Atlas.
+
+---
+
+## 4. Google Earth Engine — Setup Guide
+
+⚠️ Do this first, at hour 0, for whoever will run the data-pulling scripts. GEE now requires a Google Cloud Project registration step (not just a simple sign-up).
+
+1. **Sign up / register a Cloud Project.** Go to earthengine.google.com/signup, sign in with a Google account, follow the prompt to create (or select) a Google Cloud Project. Full walkthrough: developers.google.com/earth-engine/guides/access.
+2. **Register the project as noncommercial** (research/education/hackathon use qualifies, free). Access enabled immediately after registration. Institutional/college email can smooth eligibility checks. Background: earthengine.google.com/noncommercial.
+3. **Two ways to work:**
+   - Code Editor (zero install, browser only): code.earthengine.google.com — JavaScript, runs in-browser
+   - Python (for the actual pipeline / CSV export):
+     ```bash
+     pip install earthengine-api --upgrade
+     ```
+     ```python
+     import ee
+     ee.Authenticate()  # opens a browser once, stores a token locally
+     ee.Initialize(project='YOUR-CLOUD-PROJECT-ID')
+     ```
+     Docs: developers.google.com/earthengine/guides/python_install · developers.google.com/earth-engine/guides/auth
+4. **Test it works:**
+   ```python
+   img = ee.Image('USGS/SRTMGL1_003')
+   print(img.getInfo()['bands'][0])  # should print elevation band metadata
+   ```
+
+### Starter script — the core pattern everyone will reuse
+
+This is a skeleton, not tested production code — demonstrates the pattern (define area → build a grid → pull + stack features → reduce to per-cell values → export). Adapt and debug against the actual region and dataset list.
+
+```python
+import ee
+ee.Initialize(project='YOUR-CLOUD-PROJECT-ID')
+
+# 1. Area of interest — example bounding box, replace with your demo region
+aoi = ee.Geometry.Rectangle([89.7, 24.1, 96.0, 28.2])  # example: Assam
+
+# 2. Build a grid of cells over the AOI (adjust EPSG to a UTM zone covering your region)
+proj = ee.Projection('EPSG:32646').atScale(5000)  # ~5km cells
+grid = aoi.coveringGrid(proj)
+
+# 3. Pull a rainfall feature: 7-day accumulated CHIRPS rainfall ending today
+end = ee.Date(ee.Date.now())
+start = end.advance(-7, 'day')
+rain_7d = (ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+    .filterDate(start, end).sum().rename('rain_7d_mm'))
+
+# 4. Soil moisture (surface + root zone, most recent available)
+soil = (ee.ImageCollection('NASA/SMAP/SPL4SMGP/008')
+    .sort('system:time_start', False).first()
+    .select(['sm_surface', 'sm_rootzone']))
+
+# 5. Terrain features
+dem = ee.Image('USGS/SRTMGL1_003').select('elevation')
+slope = ee.Terrain.slope(dem)
+flow_acc = ee.Image('WWF/HydroSHEDS/15ACC').select('b1').rename('flow_acc')
+
+# 6. Stack everything into one multi-band image
+features = rain_7d.addBands([soil, dem, slope, flow_acc])
+
+# 7. Reduce to one row per grid cell
+cell_features = features.reduceRegions(
+    collection=grid, reducer=ee.Reducer.mean(), scale=250
+)
+
+# 8. Export — or use geemap.ee_to_pandas(cell_features) to pull straight into a DataFrame
+task = ee.batch.Export.table.toDrive(
+    collection=cell_features, description='flood_features_export', fileFormat='CSV'
+)
+task.start()
+```
+
+Repeat step 3–5's pattern for every dataset in Section 3, add each as a band in step 6, and you have the full feature table.
+
+---
+
+## 5. Feature-to-Model Mapping
+
+### 5.1 Flood model
+
+| Feature | Source | Note |
+|---|---|---|
+| Rainfall 1h/3h/6h/24h | GPM IMERG (historical) + Open-Meteo (live) | |
+| Rainfall 3-day / 7-day accumulation | CHIRPS | |
+| Rainfall anomaly | CHIRPS vs. India Drought Atlas climatology | |
+| Soil moisture | SMAP L4 | |
+| Elevation, slope | SRTM | Static — compute once |
+| Distance to river, flow accumulation | HydroSHEDS | Static — compute once |
+| Historical flood label | IFI-Impacts DFSI / India Flood Atlas | See 3.6 |
+| Sentinel-1 SAR, existing water extent | Sentinel-1 + JRC GSW | |
+| NDWI | Sentinel-2 band math | |
+| Land cover, urban % | Dynamic World | |
+| Upstream catchment area | HydroSHEDS flow accumulation | Same dataset as flow accumulation |
+| Temperature, evapotranspiration | MODIS LST, MOD16A2GF | |
+| Historical flood frequency | Derived: count of past flood labels per cell | |
+
+### 5.2 Drought model
+
+| Feature | Source | Note |
+|---|---|---|
+| Rainfall anomaly, 7/30/60/90-day deficit | CHIRPS vs. India Drought Atlas climatology | |
+| Soil moisture (surface + root-zone) | SMAP L4 | Same dataset serves both models |
+| NDVI anomaly | MODIS MOD13Q1 vs. climatology | |
+| Temperature anomaly, LST | MODIS MOD11A1 | |
+| Dry-spell duration | Derived from CHIRPS daily (consecutive dry days) | |
+| Historical drought label | India Drought Monitor (2021–present) | Live + historical in one source |
+| Evapotranspiration | MOD16A2GF | |
+| Land cover | Dynamic World | |
+| Groundwater/storage indicator | GRACE | Coarse — regional trend only |
+| Historical drought frequency | India Drought Monitor archive | |
+| Historical rainfall/NDVI climatology | India Drought Atlas | Static — compute once |
+
+**Modeling approach:** XGBoost or Random Forest classifier/regressor per model, trained on the grid-cell feature tables above with the historical labels as targets. Same-day-trainable on a laptop — no GPU cluster required.
+
+---
+
+## 6. Forecast Integration (7–15 Day Horizon)
+
+"Current conditions" data (Section 3) doesn't predict the future by itself. An actual forecast feed is needed.
+
+| API | Endpoint | What it gives you | Notes |
+|---|---|---|---|
+| Open-Meteo Forecast API | `api.open-meteo.com/v1/forecast` | Hourly/daily precipitation forecast up to 16 days, free, no key | Primary "future rainfall" signal |
+| Open-Meteo Flood API | open-meteo.com/en/docs/flood-api | Daily river discharge forecast (GloFAS model), up to ~210 days out, ~5 km resolution, free, no key | Arguably more useful than raw rainfall for flood risk — already routed through a hydrological model. Use directly as a feature for the 1/3/7/15-day flood projection. |
+
+**Flood forecast pipeline:** pull forecasted rainfall + forecasted river discharge for a cell → feed into the trained flood risk model alongside current soil saturation → get a projected risk score for day 1/3/7/15.
+
+**Drought "forecast":** be upfront in the pitch that this is a trend + climatology projection (current deficit trajectory compared against the India Drought Atlas climatology), not a hard forecast — skillful 60–90 day drought forecasting doesn't really exist in operational systems either. Judges will respect the honesty.
+
+---
+
+## 7. Alert System Design
+
+**Trigger logic (starting proposal — tune thresholds against validation data):**
+
+| Risk Level | Days to Event | Suggested Action |
+|---|---|---|
+| 🟢 Low | — | No alert |
+| 🟡 Moderate | 7–15 days out | Early advisory — monitor conditions |
+| 🟠 High | 3–7 days out | Prepare — store water, move valuables to higher ground |
+| 🔴 Severe | 0–3 days out | Evacuate / immediate action |
+
+**Implementation for the hackathon:** generate the alert record (region, risk level, days-to-event, recommended action) and display it in a notification panel in the UI — this is what a judge needs to see to evaluate the logic. A live SMS demo is a nice-to-have on top, not the deliverable itself.
+
+**If you want one live SMS demo:**
+- Twilio (twilio.com) — $15 free trial credit (~1,500 messages). ⚠️ Trial accounts can only send to phone numbers you've manually verified in the console — demo to 1–2 team members' phones, not a real resident list.
+- For India-only pricing at real scale later, providers like MSG91 are meaningfully cheaper than Twilio's USD-denominated rates — not needed for the hackathon demo, worth knowing for the "what's next" slide.
+
+---
+
+## 8. Frontend / UI Plan
+
+- **Map library:** Mapbox GL JS (free tier: 50,000 map loads/month) is the closer match to the "Google Earth" visual goal — supports satellite basemaps and smooth zoom/pan. Needs a free signup + access token. Leaflet is the zero-friction fallback if token setup eats time — fully open source, no signup.
+- **Risk overlay:** colored grid/choropleth layer on top of the base map — one color per risk level (Section 7 palette).
+- **Timeline slider:** swaps which precomputed day's risk layer is displayed. Precompute risk for each region for a range of past + projected-future dates and store as static JSON/GeoJSON per day — don't do live inference on every slider drag.
+- **Click-to-inspect panel:** clicking a cell shows its risk score, days-to-event estimate, and the alert message that would be sent.
+
+---
+
+## 9. Role Division — 4 People
+
+| Person | Primary Ownership (Hr 0–10) | Then (Hr 10–16) | Then (Hr 16–24) |
+|---|---|---|---|
+| A — Data & Geo Pipeline Lead | Owns GEE account/project setup for the team. Builds the grid + core data-pulling script (rainfall, soil moisture, terrain, land cover) producing one clean feature CSV per region. Shared artifact B and C consume. | Moves to backend API — serves precomputed risk grids + alert records to the frontend. | Integration testing, demo data prep. |
+| B — Flood Model Lead | Sources flood labels (IFI-Impacts DFSI, India Flood Atlas) in parallel with A's pipeline. Feature-engineers and trains the flood XGBoost/RF model; validates against a known historical event (e.g., a past Assam flood). | Integrates Open-Meteo rainfall + Flood API discharge forecast for the 1/3/7/15-day flood projection. | Polish, owns the flood half of the demo narrative. |
+| C — Drought Model Lead | Sources drought labels (India Drought Monitor, Drought Atlas). Feature-engineers and trains the drought model. | Builds the alert trigger logic (Section 7) — natural fit since this is the risk-score consumer. | Polish, owns the drought half of the demo narrative. |
+| D — Frontend/UI Lead | Starts the map + timeline slider scaffold immediately using mock data — doesn't need to wait for the real pipeline. | Builds out the colored risk overlay, click-to-inspect panel; integrates real data from A's API as it comes online. | Visual polish, leads demo rehearsal (knows the full user-facing flow best). |
+
+---
+
+## 10. Hour-by-Hour Timeline
+
+| Hours | Whole Team | A | B | C | D |
+|---|---|---|---|---|---|
+| 0–2 | Lock demo regions, GEE account setup (all) | Grid + pipeline skeleton | Source flood labels | Source drought labels | Map scaffold w/ mock data |
+| 2–8 | — | Feature CSV pipeline running | Flood feature engineering + training | Drought feature engineering + training | Timeline slider + overlay rendering |
+| 8–10 | Sync: models + pipeline stable? | Starts backend API | Forecast integration (flood) | Starts alert trigger logic | Wires real API into map |
+| 10–16 | Full integration push | Backend API complete | Validate flood model vs. real event | Alert logic complete | Click panel, visual polish |
+| 16–22 | End-to-end test on demo regions only | Support/fix | Flood demo narrative | Drought demo narrative | Full demo rehearsal |
+| 22–24 | Buffer — expect something to break | — | — | — | — |
+
+---
+
+## 11. Risks & Fallbacks
+
+| Risk | Mitigation |
+|---|---|
+| GEE registration/verification friction at hour 0 | Do it first thing, use an institutional email if available; Code Editor needs only a browser, no local auth. |
+| GPM IMERG "live" data is actually 3.5 months stale (Final Run latency) | Use Open-Meteo for anything that needs to be current; GPM only for historical training features. |
+| Historical label data is messier than expected for chosen region | Fall back to a smaller hand-curated set for 1 region rather than blocking the whole pipeline — see Section 3.6. |
+| GEE compute/export limits on large regions | Keep demo regions small; use `scale` and `maxPixels` parameters; export at coarser resolution if exports time out. |
+| Frontend blocked waiting on real data | Build against mock data from hour 0 (already reflected in the timeline). |
+| Twilio trial restrictions block your SMS demo | Verify 1–2 test numbers in the Twilio console well before the demo slot, not during it. |
+
+---
+
+## 12. Quick Reference — All Links
+
+**Google Earth Engine**
+- Sign up: https://earthengine.google.com/signup/
+- Access/registration guide: https://developers.google.com/earth-engine/guides/access
+- Noncommercial use info: https://earthengine.google.com/noncommercial/
+- Code Editor: https://code.earthengine.google.com
+- Python install: https://developers.google.com/earth-engine/guides/python_install
+- Auth guide: https://developers.google.com/earth-engine/guides/auth
+
+**Forecast APIs**
+- Open-Meteo Forecast: https://open-meteo.com/en/docs
+- Open-Meteo Flood API (GloFAS): https://open-meteo.com/en/docs/flood-api
+
+**India-specific historical data**
+- India Flood Atlas: https://indiafloodatlas.in/
+- India Flood Atlas data repo: https://github.com/wcl-iitgn/india-flood-atlas-data
+- IFI-Impacts (flood labels, IIT Delhi): https://zenodo.org/doi/10.5281/zenodo.4742142
+- INDOFLOODS (IIT Delhi): https://zenodo.org/records/14584655
+- India Drought Monitor: https://indiadroughtmonitor.in/
+- India Drought Atlas data repo: https://github.com/wcl-iitgn/india-drought-atlas-data
+- GeoID (Indian dams): https://github.com/wcl-iitgn/geoid
+- NDMA Flood Hazard Atlases: https://ndma.gov.in/flood-hazard-atlases
+- Dartmouth Flood Observatory: https://floodobservatory.colorado.edu/
+- CWC Flood Forecast Dashboard: https://aff.india-water.gov.in/ and https://cwc.gov.in/ffm_dashboard
+
+**Alerts & Frontend**
+- Twilio: https://www.twilio.com/
+- Mapbox: https://www.mapbox.com/
+- Leaflet: https://leafletjs.com/
+
+**Open questions for the team to nail down at hour 0:** final pick of the 2–3 demo regions, and confirmation everyone can get GEE access without institutional-email friction.
