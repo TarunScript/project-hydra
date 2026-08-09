@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import * as maplibregl from 'maplibre-gl';
 import EmergingFactorsPanel from './EmergingFactorsPanel.jsx';
 import './EmergingFactorsPanel.css';
+import LandingPage from './LandingPage.jsx';
 
 // Mock GeoJSON data matching design system's risk levels
 const INITIAL_FEATURES = [
@@ -175,7 +177,8 @@ const MAP_STYLES = {
   }
 };
 
-export default function App() {
+function Dashboard() {
+  const navigate = useNavigate();
   const mapContainer = useRef(null);
   const map = useRef(null);
   const [features, setFeatures] = useState(INITIAL_FEATURES);
@@ -372,7 +375,7 @@ export default function App() {
     <div id="app">
       {/* Top Header / Stats Bar */}
       <header className="header">
-        <div className="header__brand">
+        <div className="header__brand" style={{ cursor: 'pointer' }} onClick={() => navigate('/')} title="Return to Landing Page">
           <span className="header__logo">🌊</span>
           <div>
             <h1 className="header__title">PROJECT HYDRA</h1>
@@ -637,5 +640,18 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/welcome" element={<LandingPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

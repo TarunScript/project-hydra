@@ -75,8 +75,11 @@
   --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Poppins', sans-serif;
+  --font-serif: 'Source Serif 4', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 1rem;
   --text-xs: 0.7rem;
   --text-sm: 0.8rem;
   --text-base: 0.875rem;
@@ -84,6 +87,51 @@
   --text-xl: 1.15rem;
   --text-2xl: 1.4rem;
   --text-3xl: 1.8rem;
+}
+
+/* --- Liquid Glass Utilities --- */
+.liquid-glass {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--radius, 1rem);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 8px 32px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(56, 189, 248, 0.2) 50%, rgba(255, 255, 255, 0.05) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.liquid-glass-strong {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.78) 0%, rgba(30, 41, 59, 0.65) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: var(--radius, 1rem);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 40px rgba(56, 189, 248, 0.12);
+  position: relative;
+}
+
+.liquid-glass-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(56, 189, 248, 0.3) 50%, rgba(255, 255, 255, 0.08) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* --- Reset & Base --- */
