@@ -10,8 +10,9 @@ import express from 'express';
 import cors from 'cors';
 import { getEmergingFactors } from './emerging-factors.js';
 
-// Auto-load .env file if available
+// Auto-load .env file from local server dir or root dir
 try { process.loadEnvFile(); } catch (_) {}
+try { process.loadEnvFile('../.env'); } catch (_) {}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,7 +22,8 @@ app.use(express.json());
 
 // ── Health check ──
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', mode: process.env.PERPLEXITY_API_KEY ? 'live' : 'mock' });
+  const isLive = Boolean(process.env.GROQ_API_KEY || process.env.PERPLEXITY_API_KEY);
+  res.json({ status: 'ok', mode: isLive ? 'live-groq-llama-3.3' : 'mock' });
 });
 
 // ── Emerging Factors endpoint ──

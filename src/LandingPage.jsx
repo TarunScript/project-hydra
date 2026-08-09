@@ -48,8 +48,7 @@ export default function LandingPage() {
           {/* TOP NAV */}
           <nav className="landing-nav">
             <div className="landing-brand">
-              <span className="landing-brand-logo">🌊</span>
-              <span className="landing-brand-name">Hydra</span>
+              <span className="landing-brand-name">HYDRA</span>
             </div>
 
             <button 

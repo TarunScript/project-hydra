@@ -4,7 +4,7 @@
    =================================================== */
 
 /* --- Google Fonts --- */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@1,8..60,400;1,8..60,600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* --- CSS Custom Properties (Design Tokens) --- */
 :root {
@@ -44,7 +44,7 @@
   --border-accent: rgba(56, 189, 248, 0.45);
   --glass-blur: 24px;
   --glass-border: 1px solid rgba(56, 189, 248, 0.28);
-  --radius: 1rem;
+  --radius: 8px;
 
   /* Shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -53,9 +53,9 @@
   --shadow-glow-blue: 0 0 25px rgba(56, 189, 248, 0.35);
 
   /* Typography */
-  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Poppins', sans-serif;
-  --font-serif: 'Source Serif 4', serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --text-xs: 0.72rem;
   --text-sm: 0.82rem;
@@ -155,7 +155,7 @@ html, body {
   gap: var(--space-lg);
   padding: 10px 24px;
   margin: 12px 16px 0 16px;
-  border-radius: 9999px;
+  border-radius: 8px;
   background: rgba(10, 16, 32, 0.65);
   border: 1px solid rgba(56, 189, 248, 0.28);
   backdrop-filter: blur(24px);
@@ -224,7 +224,7 @@ html, body {
   padding: 6px 14px;
   background: rgba(15, 23, 42, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
+  border-radius: 6px;
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
@@ -254,7 +254,7 @@ html, body {
   padding: 7px 32px 7px 16px;
   background: rgba(15, 23, 42, 0.55);
   border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 9999px;
+  border-radius: 6px;
   color: #ffffff;
   font-family: var(--font-display);
   font-size: 0.72rem;
@@ -297,7 +297,7 @@ html, body {
   padding: 7px 16px 7px 34px;
   background: rgba(15, 23, 42, 0.55);
   border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 9999px;
+  border-radius: 6px;
   color: #ffffff;
   font-family: var(--font-display);
   font-size: 0.72rem;
@@ -337,7 +337,7 @@ html, body {
   min-width: 280px;
   background: rgba(10, 16, 32, 0.95);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 18px;
+  border-radius: 8px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   max-height: 250px;
   overflow-y: auto;
@@ -386,7 +386,7 @@ html, body {
   position: relative;
   z-index: 1;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 8px;
   border: 1px solid rgba(56, 189, 248, 0.22);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
@@ -406,7 +406,7 @@ html, body {
   z-index: 800;
   background: rgba(10, 16, 32, 0.72);
   border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 14px 18px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -452,7 +452,7 @@ html, body {
   flex-direction: column;
   background: linear-gradient(180deg, rgba(8, 15, 30, 0.78) 0%, rgba(15, 23, 42, 0.68) 100%);
   border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 28px;
+  border-radius: 8px;
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   overflow: hidden;
@@ -493,7 +493,7 @@ html, body {
   font-size: 0.68rem;
   font-weight: 600;
   padding: 2px 10px;
-  border-radius: 9999px;
+  border-radius: 6px;
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -521,7 +521,7 @@ html, body {
 .alert-card {
   background: rgba(15, 23, 42, 0.48);
   border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 14px;
   margin-bottom: 12px;
   cursor: pointer;
@@ -643,7 +643,7 @@ html, body {
   height: calc(100% - 32px);
   background: linear-gradient(135deg, rgba(8, 15, 30, 0.88) 0%, rgba(15, 23, 42, 0.82) 100%);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 28px;
+  border-radius: 8px;
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   z-index: 1500;
@@ -677,14 +677,14 @@ html, body {
 }
 
 .detail-panel__close {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
+  border-radius: 6px;
   color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -804,7 +804,7 @@ html, body {
   padding: 12px 20px;
   background: linear-gradient(135deg, rgba(14, 165, 233, 0.35) 0%, rgba(2, 132, 199, 0.45) 100%);
   border: 1px solid rgba(56, 189, 248, 0.5);
-  border-radius: 9999px;
+  border-radius: 8px;
   color: white;
   font-family: var(--font-display);
   font-size: var(--text-xs);
@@ -834,7 +834,7 @@ html, body {
   gap: 16px;
   padding: 10px 24px;
   margin: 0 16px 14px 16px;
-  border-radius: 9999px;
+  border-radius: 8px;
   background: rgba(10, 16, 32, 0.78);
   border: 1px solid rgba(56, 189, 248, 0.32);
   backdrop-filter: blur(24px);
@@ -859,7 +859,7 @@ html, body {
   justify-content: center;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
+  border-radius: 6px;
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -922,7 +922,7 @@ html, body {
   width: 100%;
   height: 6px;
   background: linear-gradient(90deg, rgba(34, 197, 94, 0.4) 0%, rgba(56, 189, 248, 0.6) 35%, rgba(234, 179, 8, 0.6) 100%);
-  border-radius: 9999px;
+  border-radius: 2px;
   outline: none;
   cursor: pointer;
   position: relative;
@@ -1043,4 +1043,156 @@ html, body {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ===================================================
+   White Map Mode — 100% Monochrome Stealth Black & White Theme
+   =================================================== */
+#app.theme-light {
+  background: #f1f5f9;
+  background-image: radial-gradient(ellipse at 75% 45%, rgba(148, 163, 184, 0.12) 0%, rgba(203, 213, 225, 0.05) 50%, transparent 80%);
+}
+
+/* Header & Controls */
+.theme-light .header {
+  background: rgba(8, 12, 20, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(24px) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+.theme-light .header__title {
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.theme-light .stat-pill {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+}
+
+.theme-light .select-control,
+.theme-light .search-input {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+.theme-light .btn-header-research {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92)) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.theme-light .map-container {
+  border-color: rgba(148, 163, 184, 0.45) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Timeline Control Bar */
+.theme-light .timeline-bar {
+  background: rgba(8, 12, 20, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(24px) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+.theme-light .timeline-btn {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f1f5f9 !important;
+}
+
+.theme-light .timeline-btn--active {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.4) !important;
+}
+
+.theme-light .timeline-slider {
+  background: linear-gradient(90deg, #334155 0%, #64748b 35%, #cbd5e1 100%) !important;
+}
+
+.theme-light .timeline-slider::-webkit-slider-thumb {
+  background: #ffffff !important;
+  border-color: #0f172a !important;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-light .timeline-bar__date-label--today {
+  color: #ffffff !important;
+}
+
+.theme-light .timeline-bar__forecast-badge {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* Sidebar & Alert Cards */
+.theme-light .sidebar {
+  background: linear-gradient(180deg, rgba(8, 12, 20, 0.95) 0%, rgba(15, 23, 42, 0.94) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(24px) !important;
+}
+
+.theme-light .alert-card {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.theme-light .alert-card:hover {
+  background: rgba(30, 41, 59, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.theme-light .alert-card__type {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* Detail Panel / Risk Analysis Overlay */
+.theme-light .detail-panel {
+  background: linear-gradient(135deg, rgba(8, 12, 20, 0.96) 0%, rgba(15, 23, 42, 0.94) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(24px) !important;
+}
+
+.theme-light .detail-section__title {
+  color: #94a3b8 !important;
+}
+
+.theme-light .detail-panel p {
+  color: #ffffff !important;
+}
+
+.theme-light .detail-panel table td {
+  color: #ffffff !important;
+}
+
+.theme-light .detail-alert-preview {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-left-color: #ffffff !important;
+  color: #f8fafc !important;
+}
+
+.theme-light .detail-panel button {
+  background: linear-gradient(135deg, #334155 0%, #0f172a 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.theme-light .map-legend {
+  background: rgba(8, 12, 20, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+}
+
+.theme-light .map-legend__title {
+  color: #e2e8f0 !important;
 }

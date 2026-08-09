@@ -149,6 +149,48 @@ const MAP_STYLES = {
         maxzoom: 19
       }
     ]
+  },
+  light: {
+    version: 8,
+    sources: {
+      'carto-light': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+        ],
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+      },
+      'carto-light-labels': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+          'https://d.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png'
+        ],
+        tileSize: 256
+      }
+    },
+    layers: [
+      {
+        id: 'carto-light-layer',
+        type: 'raster',
+        source: 'carto-light',
+        minzoom: 0,
+        maxzoom: 19
+      },
+      {
+        id: 'carto-light-labels-layer',
+        type: 'raster',
+        source: 'carto-light-labels',
+        minzoom: 0,
+        maxzoom: 19
+      }
+    ]
   }
 };
 
@@ -160,7 +202,7 @@ function Dashboard() {
   const [features, setFeatures] = useState([]);
   const [selectedCell, setSelectedCell] = useState(null);
   const [timelineDay, setTimelineDay] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState('dark');
   const [selectedRegion, setSelectedRegion] = useState('all_floods');
@@ -218,7 +260,6 @@ function Dashboard() {
       if (data.features && data.features.length > 0) {
         setFeatures(data.features);
         setSelectedCell(data.features[0].properties);
-        setDetailOpen(true);
         console.log(`✓ Loaded ${data.features.length} ${mode} (day=${day}) | total=${data.features.length}`);
       }
     } catch (err) {
@@ -348,13 +389,16 @@ function Dashboard() {
 
   const changeMapStyle = (styleKey) => {
     setCurrentStyle(styleKey);
+    setViewMode('districts');
     if (map.current) {
       map.current.setStyle(MAP_STYLES[styleKey]);
     }
+    fetchRiskData(selectedRegion, null, 'districts', timelineDay);
   };
 
   const handleRegionChange = (key) => {
     setSelectedRegion(key);
+    setViewMode('districts');
     const reg = DEMO_REGIONS[key];
     if (reg && map.current) {
       map.current.flyTo({
@@ -363,6 +407,7 @@ function Dashboard() {
         duration: 1800
       });
     }
+    fetchRiskData(key, null, 'districts', timelineDay);
   };
 
   // ── Search ─────────────────────────────────────────────────────
@@ -415,11 +460,10 @@ function Dashboard() {
   };
 
   return (
-    <div id="app">
+    <div id="app" className={currentStyle === 'light' ? 'theme-light' : ''}>
       {/* Top Header / Stats Bar */}
       <header className="header">
         <div className="header__brand" style={{ cursor: 'pointer' }} onClick={() => navigate('/')} title="Return to Landing Page">
-          <span className="header__logo">🌊</span>
           <div>
             <h1 className="header__title">PROJECT HYDRA</h1>
             <div className="header__subtitle">India Flood & Drought EWS</div>
@@ -444,7 +488,6 @@ function Dashboard() {
             <span className="stat-pill__value">{riskCounts.low} Districts</span>
           </div>
           <div className="stat-pill">
-            <span>📅</span>
             <span className="stat-pill__value">{getCalendarDate(timelineDay, 'full')}</span>
           </div>
         </div>
@@ -452,7 +495,6 @@ function Dashboard() {
         <div className="header__controls">
           {/* Location Search Bar */}
           <div className="search-container">
-            <span className="search-icon">🔍</span>
             <input
               type="text"
               className="search-input"
@@ -482,8 +524,9 @@ function Dashboard() {
             value={currentStyle}
             onChange={(e) => changeMapStyle(e.target.value)}
           >
-            <option value="dark">🗺️ Dark Map</option>
-            <option value="satellite">🛰️ Satellite</option>
+            <option value="dark">Dark Map</option>
+            <option value="light">White Map</option>
+            <option value="satellite">Satellite Map</option>
           </select>
 
           {/* Region Selector */}
@@ -503,9 +546,24 @@ function Dashboard() {
             value={viewMode}
             onChange={(e) => setViewMode(e.target.value)}
           >
-            <option value="districts">🏛️ District View</option>
-            <option value="zones">🔬 5km Grid</option>
+            <option value="districts">District View</option>
+            <option value="zones">5km Grid</option>
           </select>
+
+          {/* Emerging Factors Research Panel Button */}
+          <button
+            className="btn-header-research"
+            onClick={() => setEfpOpen(!efpOpen)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 14px', background: 'linear-gradient(135deg, rgba(56,189,248,0.18), rgba(99,102,241,0.18))',
+              border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '6px',
+              color: '#f8fafc', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(56,189,248,0.15)', transition: 'all 200ms ease'
+            }}
+          >
+            <span>{efpOpen ? 'Close AI Research' : 'AI Emerging Factors'}</span>
+          </button>
         </div>
       </header>
 
@@ -515,14 +573,17 @@ function Dashboard() {
         {weatherWarning && (
           <div style={{
             position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)',
-            zIndex: 950, background: 'rgba(234, 179, 8, 0.18)', border: '1px solid rgba(234, 179, 8, 0.5)',
-            backdropFilter: 'blur(16px)', borderRadius: '9999px', padding: '6px 18px',
-            fontSize: '0.75rem', color: '#fef08a', display: 'flex', alignItems: 'center', gap: '8px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.4)', fontWeight: 500
+            zIndex: 950,
+            background: currentStyle === 'light' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(234, 179, 8, 0.18)',
+            border: currentStyle === 'light' ? '1px solid rgba(56, 189, 248, 0.6)' : '1px solid rgba(234, 179, 8, 0.5)',
+            backdropFilter: 'blur(16px)', borderRadius: '6px', padding: '8px 20px',
+            fontSize: '0.78rem',
+            color: currentStyle === 'light' ? '#38bdf8' : '#fef08a',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', fontWeight: 600
           }}>
-            <span>⚠️</span>
             <span>{weatherWarning}</span>
-            <button onClick={() => setWeatherWarning(null)} style={{ background: 'none', border: 'none', color: '#fef08a', cursor: 'pointer', marginLeft: '6px', fontSize: '0.9rem' }}>✕</button>
+            <button onClick={() => setWeatherWarning(null)} style={{ background: 'none', border: 'none', color: currentStyle === 'light' ? '#38bdf8' : '#fef08a', cursor: 'pointer', marginLeft: '6px', fontSize: '0.9rem' }}>✕</button>
           </div>
         )}
         {/* Loading Overlay */}
@@ -555,7 +616,7 @@ function Dashboard() {
             onClick={() => setEfpOpen(!efpOpen)}
             title="Emerging Factors Panel"
           >
-            🔬 {efpOpen ? 'Close' : 'Factors'}
+            {efpOpen ? 'Close Factors' : 'Emerging Factors'}
           </button>
 
           {/* Map Legend */}
@@ -584,18 +645,41 @@ function Dashboard() {
 
         {/* Emerging Factors Panel */}
         {(() => {
-          const matchedFeature = features.find(f => f.properties.id === selectedCell?.id);
-          const coords = matchedFeature?.geometry?.coordinates?.[0];
           let cLat = 26.15, cLon = 92.8;
-          if (coords && coords.length > 0) {
-            cLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
-            cLon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+          if (selectedCell) {
+            // Direct cell coords if available
+            if (selectedCell.wgs_lat != null && selectedCell.wgs_lon != null) {
+              cLat = Number(selectedCell.wgs_lat);
+              cLon = Number(selectedCell.wgs_lon);
+            } else {
+              // Find feature in feature collection by id or district_name
+              const feature = features.find(f => f.properties?.id === selectedCell.id || f.properties?.district_name === selectedCell.district_name);
+              if (feature && feature.geometry) {
+                const geom = feature.geometry;
+                let pts = [];
+                if (geom.type === 'Polygon' && geom.coordinates?.[0]) {
+                  pts = geom.coordinates[0];
+                } else if (geom.type === 'MultiPolygon' && geom.coordinates) {
+                  pts = geom.coordinates.flatMap(poly => poly[0] || []);
+                }
+                if (pts.length > 0) {
+                  cLon = pts.reduce((acc, pt) => acc + (pt[0] || 0), 0) / pts.length;
+                  cLat = pts.reduce((acc, pt) => acc + (pt[1] || 0), 0) / pts.length;
+                }
+              }
+            }
           }
+
+          const locName = selectedCell?.district_name
+            ? `${selectedCell.district_name} District (${selectedCell.state?.replace('_', ' ').toUpperCase() || 'INDIA'})`
+            : (selectedCell?.region || 'Selected Location');
+
           return (
             <EmergingFactorsPanel
               lat={cLat}
               lon={cLon}
-              locationName={selectedCell?.region || 'Selected Location'}
+              locationName={locName}
+              selectedCell={selectedCell}
               isOpen={efpOpen}
               onClose={() => setEfpOpen(false)}
             />
@@ -633,7 +717,7 @@ function Dashboard() {
 
               {/* Forecast Date */}
               <div className="detail-section">
-                <div className="detail-section__title">📅 Forecast Date</div>
+                <div className="detail-section__title">Forecast Date</div>
                 <p style={{ fontWeight: 600, color: 'var(--text-accent)', fontSize: 'var(--text-lg)' }}>
                   {getCalendarDate(timelineDay, 'full')}
                 </p>
@@ -660,9 +744,25 @@ function Dashboard() {
                     {selectedCell.alert_message}
                   </div>
                 </div>
-                <button className="btn-sms" onClick={() => alert(`Simulated SMS: "${selectedCell.alert_message}"`)}>
-                  📲 Test Trigger SMS Alert
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                  <button className="btn-sms" onClick={() => alert(`Simulated SMS: "${selectedCell.alert_message}"`)}>
+                    Trigger SMS Alert
+                  </button>
+                  <button
+                    onClick={() => setEfpOpen(true)}
+                    style={{
+                      width: '100%', padding: '10px 14px',
+                      background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
+                      border: 'none', borderRadius: '8px', color: '#ffffff',
+                      fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(56,189,248,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      transition: 'transform 150ms ease, box-shadow 150ms ease'
+                    }}
+                  >
+                    Run AI Emerging Factors Research
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -675,7 +775,7 @@ function Dashboard() {
               Active Alerts <span className="sidebar__badge">{features.length} LIVE</span>
             </div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-              📅 {getCalendarDate(timelineDay, 'full')} · {getDayBadge(timelineDay)}
+              {getCalendarDate(timelineDay, 'full')} · {getDayBadge(timelineDay)}
             </div>
           </div>
 
@@ -712,7 +812,7 @@ function Dashboard() {
             })}
             {features.filter(f => f.properties.risk_level === 'severe' || f.properties.risk_level === 'high').length === 0 && (
               <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                ✅ No severe or high risk alerts for {getCalendarDate(timelineDay, 'full')}
+                No severe or high risk alerts for {getCalendarDate(timelineDay, 'full')}
               </div>
             )}
           </div>
@@ -745,7 +845,7 @@ function Dashboard() {
         </div>
 
         <div className="timeline-bar__current-date">
-          📅 {getCalendarDate(timelineDay, 'full')} · Day {timelineDay > 0 ? `+${timelineDay}` : timelineDay}
+          {getCalendarDate(timelineDay, 'full')} · Day {timelineDay > 0 ? `+${timelineDay}` : timelineDay}
           <span className="timeline-bar__forecast-badge">{getDayBadge(timelineDay)}</span>
         </div>
       </div>
