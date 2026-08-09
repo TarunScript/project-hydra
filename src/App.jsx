@@ -9,19 +9,34 @@ const INITIAL_FEATURES = [];
 
 
 const DEMO_REGIONS = {
+  all_floods: {
+    name: 'All Flood States (Unified 4-State Model)',
+    center: [87.5, 23.5],
+    zoom: 6.0
+  },
   assam: {
-    name: 'Assam (Flood Case)',
+    name: 'Assam',
     center: [92.8, 26.15],
-    zoom: 8.5
+    zoom: 8.0
+  },
+  bihar: {
+    name: 'Bihar',
+    center: [85.8, 25.8],
+    zoom: 8.0
+  },
+  west_bengal: {
+    name: 'West Bengal',
+    center: [87.8, 24.0],
+    zoom: 7.5
+  },
+  odisha: {
+    name: 'Odisha',
+    center: [84.8, 20.5],
+    zoom: 7.5
   },
   marathwada: {
     name: 'Marathwada (Drought Case)',
     center: [76.5, 19.15],
-    zoom: 8.5
-  },
-  bihar: {
-    name: 'Bihar (Kosi Flood Zone)',
-    center: [86.8, 25.8],
     zoom: 8.5
   },
   rayalaseema: {
@@ -122,7 +137,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState('dark');
-  const [selectedRegion, setSelectedRegion] = useState('assam');
+  const [selectedRegion, setSelectedRegion] = useState('all_floods');
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('districts'); // start with districts; switch to zones on demand
 
@@ -131,11 +146,16 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  const timelineDayRef = useRef(timelineDay);
+  timelineDayRef.current = timelineDay;
+
   // Fetch real risk data from the Flask API
-  const fetchRiskData = async (region = 'assam', month = null, mode = viewMode) => {
+  const fetchRiskData = async (region = selectedRegion, month = null, mode = viewMode, day = timelineDay) => {
     try {
       setIsLoading(true);
       const monthParam = month !== null ? `month=${month}` : 'month=7';
+      const dayParam = `day=${day}`;
+      const endpointRegion = ['all_floods', 'assam', 'bihar', 'west_bengal', 'odisha'].includes(region) ? 'flood' : region;
 
       let url;
       if (mode === 'zones') {
@@ -145,13 +165,22 @@ export default function App() {
           const bounds = map.current.getBounds();
           bboxParams = `&minlon=${bounds.getWest().toFixed(4)}&maxlon=${bounds.getEast().toFixed(4)}&minlat=${bounds.getSouth().toFixed(4)}&maxlat=${bounds.getNorth().toFixed(4)}`;
         }
-        url = `${API_BASE}/risk-grid/${region}/cells?${monthParam}&min_risk=0.0&max_cells=3000${bboxParams}`;
+        url = `${API_BASE}/risk-grid/${endpointRegion}/cells?${monthParam}&${dayParam}&min_risk=0.0&max_cells=3000${bboxParams}`;
       } else {
         // District-level polygons
-        url = `${API_BASE}/risk-grid/${region}?${monthParam}`;
+        url = `${API_BASE}/risk-grid/${endpointRegion}?${monthParam}&${dayParam}`;
       }
 
-      const res = await fetch(url);
+      let res;
+      try {
+        res = await fetch(url);
+      } catch (err) {
+        const altUrl = url.includes('localhost') 
+          ? url.replace('localhost', '127.0.0.1') 
+          : url.replace('127.0.0.1', 'localhost');
+        console.warn(`Primary fetch failed, retrying with fallback URL: ${altUrl}`);
+        res = await fetch(altUrl);
+      }
       const data = await res.json();
 
       if (data.features && data.features.length > 0) {
@@ -170,7 +199,7 @@ export default function App() {
         setFeatures(normalised);
         setSelectedCell(normalised[0].properties);
         setDetailOpen(true);
-        console.log(`✓ Loaded ${normalised.length} ${mode} | score range [${minS.toFixed(3)}, ${maxS.toFixed(3)}]`);
+        console.log(`✓ Loaded ${normalised.length} ${mode} (day=${day}) | score range [${minS.toFixed(3)}, ${maxS.toFixed(3)}]`);
       }
     } catch (err) {
       console.error('Failed to fetch risk data from API:', err);
@@ -179,18 +208,10 @@ export default function App() {
     }
   };
 
-  // Load district view on mount and region change
+  // Re-fetch when region, viewMode, or timelineDay changes
   useEffect(() => {
-    fetchRiskData(selectedRegion, null, viewMode);
-  }, [selectedRegion, viewMode]);
-
-  // Re-fetch when timeline changes
-  useEffect(() => {
-    const baseMonth = 7;
-    const monthOffset = Math.floor(timelineDay / 30);
-    const targetMonth = Math.max(5, Math.min(10, baseMonth + monthOffset));
-    fetchRiskData(selectedRegion, targetMonth, viewMode);
-  }, [timelineDay]);
+    fetchRiskData(selectedRegion, null, viewMode, timelineDay);
+  }, [selectedRegion, viewMode, timelineDay]);
 
   // Compute dynamic color stops from loaded feature scores for relative coloring
   const getColorStops = (feats) => {
@@ -203,12 +224,17 @@ export default function App() {
     };
   };
 
+  const featuresRef = useRef(features);
+  const currentStyleRef = useRef(currentStyle);
+  featuresRef.current = features;
+  currentStyleRef.current = currentStyle;
+
   const addRiskLayers = () => {
     if (!map.current) return;
 
     const geojsonData = {
       type: 'FeatureCollection',
-      features: features
+      features: featuresRef.current || []
     };
 
     if (!map.current.getSource('risk-grid')) {
@@ -221,6 +247,10 @@ export default function App() {
     }
 
     if (!map.current.getLayer('risk-layer')) {
+      // Find label layer to place risk-layer UNDER labels so place names and markings stay visible
+      const beforeId = map.current.getLayer('esri-labels-layer') ? 'esri-labels-layer' :
+                       (map.current.getLayer('carto-labels-layer') ? 'carto-labels-layer' : undefined);
+
       map.current.addLayer({
         id: 'risk-layer',
         type: 'fill',
@@ -228,17 +258,17 @@ export default function App() {
         paint: {
           'fill-color': [
             'interpolate', ['linear'],
-            ['coalesce', ['to-number', ['get', 'relative_score'], 0], 0],
+            ['coalesce', ['to-number', ['get', 'risk_score'], 0], 0],
             0.0, '#22c55e',
-            0.3, '#84cc16',
-            0.55, '#eab308',
-            0.75, '#f97316',
-            1.0, '#ef4444'
+            0.15, '#22c55e',
+            0.30, '#eab308',
+            0.50, '#f97316',
+            0.70, '#ef4444'
           ],
-          'fill-opacity': 0.72,
-          'fill-outline-color': 'rgba(255,255,255,0.2)'
+          'fill-opacity': currentStyleRef.current === 'satellite' ? 0.45 : 0.65,
+          'fill-outline-color': currentStyleRef.current === 'satellite' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)'
         }
-      });
+      }, beforeId);
 
       map.current.on('click', 'risk-layer', (e) => {
         if (e.features && e.features[0]) {
@@ -256,14 +286,19 @@ export default function App() {
     }
   };
 
+  const viewModeRef = useRef(viewMode);
+  const selectedRegionRef = useRef(selectedRegion);
+  viewModeRef.current = viewMode;
+  selectedRegionRef.current = selectedRegion;
+
   useEffect(() => {
     if (map.current) return;
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_STYLES.dark,
-      center: DEMO_REGIONS.assam.center,
-      zoom: DEMO_REGIONS.assam.zoom
+      center: DEMO_REGIONS.all_floods.center,
+      zoom: DEMO_REGIONS.all_floods.zoom
     });
 
     map.current.addControl(new maplibregl.NavigationControl(), 'top-left');
@@ -273,6 +308,13 @@ export default function App() {
       addRiskLayers();
     });
     map.current.on('styledata', addRiskLayers);
+
+    // Auto re-fetch 5km zones when user finishes panning or zooming the map
+    map.current.on('moveend', () => {
+      if (viewModeRef.current === 'zones') {
+        fetchRiskData(selectedRegionRef.current, null, 'zones', timelineDayRef.current);
+      }
+    });
 
     setTimeout(() => {
       if (map.current) map.current.resize();
@@ -292,6 +334,7 @@ export default function App() {
 
   const changeMapStyle = (styleKey) => {
     setCurrentStyle(styleKey);
+    currentStyleRef.current = styleKey;
     if (map.current) {
       map.current.setStyle(MAP_STYLES[styleKey]);
     }
@@ -346,7 +389,7 @@ export default function App() {
     const pad = 0.6;
     try {
       setIsLoading(true);
-      const url = `${API_BASE}/risk-grid/assam/cells?month=7&min_risk=0.0&max_cells=3000` +
+      const url = `${API_BASE}/risk-grid/flood/cells?month=7&min_risk=0.0&max_cells=3000` +
         `&minlon=${(lon - pad).toFixed(4)}&maxlon=${(lon + pad).toFixed(4)}` +
         `&minlat=${(lat - pad).toFixed(4)}&maxlat=${(lat + pad).toFixed(4)}`;
       const res = await fetch(url);
@@ -388,11 +431,15 @@ export default function App() {
         <div className="header__stats">
           <div className="stat-pill stat-pill--danger">
             <span>Severe Risks:</span>
-            <span className="stat-pill__value">{features.filter(f => f.properties.risk_level === 'severe').length} {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
+            <span className="stat-pill__value">{
+              features.filter(f => (!selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' ')))) && f.properties.risk_level === 'severe').length
+            } {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
           </div>
           <div className="stat-pill stat-pill--warning">
             <span>High Risk:</span>
-            <span className="stat-pill__value">{features.filter(f => f.properties.risk_level === 'high').length} {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
+            <span className="stat-pill__value">{
+              features.filter(f => (!selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' ')))) && f.properties.risk_level === 'high').length
+            } {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
           </div>
           <div className="stat-pill">
             <span>Active Region:</span>
@@ -571,42 +618,46 @@ export default function App() {
         <aside className={`sidebar ${!sidebarOpen ? 'sidebar--collapsed' : ''}`}>
           <div className="sidebar__header">
             <div className="sidebar__title">
-              Active Alerts <span className="sidebar__badge">{features.length} LIVE</span>
+              Active Alerts <span className="sidebar__badge">{
+                features.filter(f => !selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' ')))).length
+              } LIVE</span>
             </div>
           </div>
 
           <div className="sidebar__content">
-            {features.map((feature) => {
-              const p = feature.properties;
-              return (
-                <div
-                  key={p.id}
-                  className={`alert-card alert-card--${p.risk_level}`}
-                  onClick={() => {
-                    setSelectedCell(p);
-                    setDetailOpen(true);
-                    // Fly to feature center
-                    const coords = feature.geometry.coordinates[0][0];
-                    if (map.current) {
-                      map.current.flyTo({ center: coords, zoom: 9, duration: 1500 });
-                    }
-                  }}
-                >
-                  <div className="alert-card__header">
-                    <span className={`alert-card__level alert-card__level--${p.risk_level}`}>
-                      {p.risk_level}
-                    </span>
-                    <span className="alert-card__days">{p.days_to_event}d forecast</span>
+            {features
+              .filter(f => !selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' '))))
+              .map((feature) => {
+                const p = feature.properties;
+                return (
+                  <div
+                    key={p.id}
+                    className={`alert-card alert-card--${p.risk_level}`}
+                    onClick={() => {
+                      setSelectedCell(p);
+                      setDetailOpen(true);
+                      // Fly to feature center
+                      const coords = feature.geometry.coordinates[0][0];
+                      if (map.current) {
+                        map.current.flyTo({ center: coords, zoom: 9, duration: 1500 });
+                      }
+                    }}
+                  >
+                    <div className="alert-card__header">
+                      <span className={`alert-card__level alert-card__level--${p.risk_level}`}>
+                        {p.risk_level}
+                      </span>
+                      <span className="alert-card__days">{p.days_to_event}d forecast</span>
+                    </div>
+                    <div className="alert-card__region">{p.region}</div>
+                    <div className="alert-card__action">{p.alert_message}</div>
+                    <div className="alert-card__meta">
+                      <span className="alert-card__score">SCORE: {p.risk_score}</span>
+                      <span className="alert-card__type">{p.model_type ? p.model_type.toUpperCase() : 'FLOOD'}</span>
+                    </div>
                   </div>
-                  <div className="alert-card__region">{p.region}</div>
-                  <div className="alert-card__action">{p.alert_message}</div>
-                  <div className="alert-card__meta">
-                    <span className="alert-card__score">SCORE: {p.risk_score}</span>
-                    <span className="alert-card__type">{p.model_type.toUpperCase()}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </aside>
       </div>
