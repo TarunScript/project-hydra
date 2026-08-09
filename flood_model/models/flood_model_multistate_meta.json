@@ -1,0 +1,42 @@
+{
+  "model": "XGBoost Flood Risk \u2014 4-State",
+  "states": [
+    "assam",
+    "bihar",
+    "west_bengal",
+    "odisha"
+  ],
+  "trained_at": "2026-08-09T14:26:43.631210",
+  "features": [
+    "elevation",
+    "slope",
+    "flow_acc",
+    "dist_to_river",
+    "water_occurrence",
+    "rain_monthly_mm",
+    "rain_7d_mm",
+    "rain_3d_mm",
+    "rain_1d_mm",
+    "rain_daily_mean_mm",
+    "rain_anomaly",
+    "sm_surface",
+    "sm_rootzone",
+    "lst_day_k",
+    "et_mm",
+    "built_frac",
+    "water_frac",
+    "dfsi_score",
+    "pct_flooded_area",
+    "mean_flood_duration",
+    "population",
+    "historical_fatalities",
+    "hist_flood_frequency",
+    "month"
+  ],
+  "metrics": {
+    "roc_auc": 0.9995455549245242,
+    "pr_auc": 0.9992538903687497
+  },
+  "n_train": 346104,
+  "n_test": 86526
+}

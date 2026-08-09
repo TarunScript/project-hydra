@@ -29,3 +29,8 @@ __pycache__/
 .venv/
 flood_model/.venv/
 
+
+# Ignore large dataset CSV files (>100MB)
+flood_model/data/features/*.csv
+flood_model/data/features/*/*.csv
+

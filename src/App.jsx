@@ -1,16 +1,39 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import * as maplibregl from 'maplibre-gl';
+import EmergingFactorsPanel from './EmergingFactorsPanel.jsx';
+import './EmergingFactorsPanel.css';
+import LandingPage from './LandingPage.jsx';
 
 // API Backend URL — connects to the Flask server serving real XGBoost predictions
 const API_BASE = 'http://localhost:5001/api';
 
-// Features will be loaded from the API
-const INITIAL_FEATURES = [];
+// ─── Calendar Date Helper ────────────────────────────────────────
+const getCalendarDate = (dayOffset, format = 'short') => {
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  if (format === 'full') {
+    return d.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+};
 
+const getTimelineLabel = (dayOffset) => {
+  if (dayOffset === 0) return `Today · ${getCalendarDate(0)}`;
+  if (dayOffset < 0) return `${getCalendarDate(dayOffset)} (${dayOffset}d)`;
+  return `${getCalendarDate(dayOffset)} (+${dayOffset}d)`;
+};
 
+const getDayBadge = (dayOffset) => {
+  if (dayOffset < 0) return 'Historical';
+  if (dayOffset === 0) return 'Live · Today';
+  return 'Forecast';
+};
+
+// ─── Regions ─────────────────────────────────────────────────────
 const DEMO_REGIONS = {
   all_floods: {
-    name: 'All Flood States (Unified 4-State Model)',
+    name: 'All Flood States (4-State Model)',
     center: [87.5, 23.5],
     zoom: 6.0
   },
@@ -51,6 +74,7 @@ const DEMO_REGIONS = {
   }
 };
 
+// ─── Map Styles ──────────────────────────────────────────────────
 const MAP_STYLES = {
   dark: {
     version: 8,
@@ -128,10 +152,12 @@ const MAP_STYLES = {
   }
 };
 
-export default function App() {
+// ─── Dashboard Component ─────────────────────────────────────────
+function Dashboard() {
+  const navigate = useNavigate();
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const [features, setFeatures] = useState(INITIAL_FEATURES);
+  const [features, setFeatures] = useState([]);
   const [selectedCell, setSelectedCell] = useState(null);
   const [timelineDay, setTimelineDay] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -139,18 +165,23 @@ export default function App() {
   const [currentStyle, setCurrentStyle] = useState('dark');
   const [selectedRegion, setSelectedRegion] = useState('all_floods');
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('districts'); // start with districts; switch to zones on demand
+  const [viewMode, setViewMode] = useState('districts');
+
+  // Emerging Factors panel state
+  const [efpOpen, setEfpOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  const selectedRegionRef = useRef(selectedRegion);
+  selectedRegionRef.current = selectedRegion;
   const timelineDayRef = useRef(timelineDay);
   timelineDayRef.current = timelineDay;
 
-  // Fetch real risk data from the Flask API
-  const fetchRiskData = async (region = selectedRegion, month = null, mode = viewMode, day = timelineDay) => {
+  // ── Fetch real risk data from Flask API ────────────────────────
+  const fetchRiskData = useCallback(async (region = selectedRegion, month = null, mode = viewMode, day = timelineDay) => {
     try {
       setIsLoading(true);
       const monthParam = month !== null ? `month=${month}` : 'month=7';
@@ -159,7 +190,6 @@ export default function App() {
 
       let url;
       if (mode === 'zones') {
-        // Get current map bbox for zone filtering
         let bboxParams = '';
         if (map.current) {
           const bounds = map.current.getBounds();
@@ -167,7 +197,6 @@ export default function App() {
         }
         url = `${API_BASE}/risk-grid/${endpointRegion}/cells?${monthParam}&${dayParam}&min_risk=0.0&max_cells=3000${bboxParams}`;
       } else {
-        // District-level polygons
         url = `${API_BASE}/risk-grid/${endpointRegion}?${monthParam}&${dayParam}`;
       }
 
@@ -175,8 +204,8 @@ export default function App() {
       try {
         res = await fetch(url);
       } catch (err) {
-        const altUrl = url.includes('localhost') 
-          ? url.replace('localhost', '127.0.0.1') 
+        const altUrl = url.includes('localhost')
+          ? url.replace('localhost', '127.0.0.1')
           : url.replace('127.0.0.1', 'localhost');
         console.warn(`Primary fetch failed, retrying with fallback URL: ${altUrl}`);
         res = await fetch(altUrl);
@@ -184,57 +213,40 @@ export default function App() {
       const data = await res.json();
 
       if (data.features && data.features.length > 0) {
-        // Compute relative_score (0-1) for colour ramp — avoids all-red when range is narrow
-        const rawScores = data.features.map(f => f.properties.risk_score || 0);
-        const minS = Math.min(...rawScores);
-        const maxS = Math.max(...rawScores);
-        const range = maxS - minS || 0.001;
-        const normalised = data.features.map(f => ({
-          ...f,
-          properties: {
-            ...f.properties,
-            relative_score: parseFloat(((f.properties.risk_score - minS) / range).toFixed(3)),
-          }
-        }));
-        setFeatures(normalised);
-        setSelectedCell(normalised[0].properties);
+        setFeatures(data.features);
+        setSelectedCell(data.features[0].properties);
         setDetailOpen(true);
-        console.log(`✓ Loaded ${normalised.length} ${mode} (day=${day}) | score range [${minS.toFixed(3)}, ${maxS.toFixed(3)}]`);
+        console.log(`✓ Loaded ${data.features.length} ${mode} (day=${day}) | total=${data.features.length}`);
       }
     } catch (err) {
       console.error('Failed to fetch risk data from API:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedRegion, viewMode, timelineDay]);
 
   // Re-fetch when region, viewMode, or timelineDay changes
   useEffect(() => {
     fetchRiskData(selectedRegion, null, viewMode, timelineDay);
   }, [selectedRegion, viewMode, timelineDay]);
 
-  // Compute dynamic color stops from loaded feature scores for relative coloring
-  const getColorStops = (feats) => {
-    if (!feats || feats.length === 0) return { low: 0.0, mid: 0.5, high: 0.9 };
-    const scores = feats.map(f => f.properties.risk_score || 0).sort((a, b) => a - b);
-    return {
-      low: scores[Math.floor(scores.length * 0.1)],
-      mid: scores[Math.floor(scores.length * 0.5)],
-      high: scores[Math.floor(scores.length * 0.9)],
-    };
-  };
+  // ── Risk Counts for Stat Pills ─────────────────────────────────
+  const riskCounts = React.useMemo(() => {
+    const counts = { severe: 0, high: 0, moderate: 0, low: 0 };
+    features.forEach(f => {
+      const level = f.properties?.risk_level;
+      if (level && counts[level] !== undefined) counts[level]++;
+    });
+    return counts;
+  }, [features]);
 
-  const featuresRef = useRef(features);
-  const currentStyleRef = useRef(currentStyle);
-  featuresRef.current = features;
-  currentStyleRef.current = currentStyle;
-
+  // ── Map Layers ─────────────────────────────────────────────────
   const addRiskLayers = () => {
     if (!map.current) return;
 
     const geojsonData = {
       type: 'FeatureCollection',
-      features: featuresRef.current || []
+      features: features
     };
 
     if (!map.current.getSource('risk-grid')) {
@@ -247,10 +259,6 @@ export default function App() {
     }
 
     if (!map.current.getLayer('risk-layer')) {
-      // Find label layer to place risk-layer UNDER labels so place names and markings stay visible
-      const beforeId = map.current.getLayer('esri-labels-layer') ? 'esri-labels-layer' :
-                       (map.current.getLayer('carto-labels-layer') ? 'carto-labels-layer' : undefined);
-
       map.current.addLayer({
         id: 'risk-layer',
         type: 'fill',
@@ -265,14 +273,19 @@ export default function App() {
             0.50, '#f97316',
             0.70, '#ef4444'
           ],
-          'fill-opacity': currentStyleRef.current === 'satellite' ? 0.45 : 0.65,
-          'fill-outline-color': currentStyleRef.current === 'satellite' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)'
+          'fill-opacity': 0.65,
+          'fill-outline-color': '#ffffff'
         }
-      }, beforeId);
+      });
 
       map.current.on('click', 'risk-layer', (e) => {
         if (e.features && e.features[0]) {
-          setSelectedCell(e.features[0].properties);
+          const props = e.features[0].properties;
+          // Parse factors if it's a JSON string from maplibre
+          if (typeof props.factors === 'string') {
+            try { props.factors = JSON.parse(props.factors); } catch {}
+          }
+          setSelectedCell(props);
           setDetailOpen(true);
         }
       });
@@ -286,11 +299,7 @@ export default function App() {
     }
   };
 
-  const viewModeRef = useRef(viewMode);
-  const selectedRegionRef = useRef(selectedRegion);
-  viewModeRef.current = viewMode;
-  selectedRegionRef.current = selectedRegion;
-
+  // Initialize map
   useEffect(() => {
     if (map.current) return;
 
@@ -309,10 +318,13 @@ export default function App() {
     });
     map.current.on('styledata', addRiskLayers);
 
-    // Auto re-fetch 5km zones when user finishes panning or zooming the map
-    map.current.on('moveend', () => {
-      if (viewModeRef.current === 'zones') {
-        fetchRiskData(selectedRegionRef.current, null, 'zones', timelineDayRef.current);
+    // Auto-switch to zone view on zoom in
+    map.current.on('zoomend', () => {
+      const zoom = map.current.getZoom();
+      if (zoom >= 9.5 && viewMode !== 'zones') {
+        setViewMode('zones');
+      } else if (zoom < 8.5 && viewMode !== 'districts') {
+        setViewMode('districts');
       }
     });
 
@@ -321,20 +333,18 @@ export default function App() {
     }, 500);
   }, []);
 
+  // Update map data when features change
   useEffect(() => {
     if (map.current && map.current.getSource('risk-grid')) {
       map.current.getSource('risk-grid').setData({
         type: 'FeatureCollection',
         features: features
       });
-
-      // color is driven by relative_score (0-1), already embedded in feature properties
     }
   }, [features]);
 
   const changeMapStyle = (styleKey) => {
     setCurrentStyle(styleKey);
-    currentStyleRef.current = styleKey;
     if (map.current) {
       map.current.setStyle(MAP_STYLES[styleKey]);
     }
@@ -352,6 +362,7 @@ export default function App() {
     }
   };
 
+  // ── Search ─────────────────────────────────────────────────────
   const handleSearchInput = async (e) => {
     const val = e.target.value;
     setSearchQuery(val);
@@ -373,46 +384,30 @@ export default function App() {
     }
   };
 
-  const handleSelectPlace = async (place) => {
+  const handleSelectPlace = (place) => {
     const lon = parseFloat(place.lon);
     const lat = parseFloat(place.lat);
     const placeName = place.display_name.split(',')[0];
 
-    setSearchQuery(placeName);
-    setSearchResults([]);
-
     if (map.current) {
-      map.current.flyTo({ center: [lon, lat], zoom: 10, duration: 1500 });
+      map.current.flyTo({
+        center: [lon, lat],
+        zoom: 10,
+        duration: 2000
+      });
     }
 
-    // Fetch real model zones within ~0.6 degrees around the searched place
-    const pad = 0.6;
-    try {
-      setIsLoading(true);
-      const url = `${API_BASE}/risk-grid/flood/cells?month=7&min_risk=0.0&max_cells=3000` +
-        `&minlon=${(lon - pad).toFixed(4)}&maxlon=${(lon + pad).toFixed(4)}` +
-        `&minlat=${(lat - pad).toFixed(4)}&maxlat=${(lat + pad).toFixed(4)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.features && data.features.length > 0) {
-        setFeatures(data.features);
-        setSelectedCell(data.features[0].properties);
-        setDetailOpen(true);
-        setViewMode('zones');
-      } else {
-        setSelectedCell({
-          id: `search-${Date.now()}`, region: `${placeName} Region`,
-          model_type: 'flood', risk_score: null, risk_level: 'moderate',
-          days_to_event: null,
-          alert_message: `No flood model data for ${placeName}. Model covers Assam (2015-2023).`,
-          factors: {},
-        });
-        setDetailOpen(true);
-      }
-    } catch (err) {
-      console.error('Zone fetch failed:', err);
-    } finally {
-      setIsLoading(false);
+    setSearchQuery(placeName);
+    setSearchResults([]);
+  };
+
+  // ── Risk Level Color Helper ────────────────────────────────────
+  const getRiskColor = (level) => {
+    switch (level) {
+      case 'severe': return 'var(--risk-severe)';
+      case 'high': return 'var(--risk-high)';
+      case 'moderate': return 'var(--risk-moderate)';
+      default: return 'var(--risk-low)';
     }
   };
 
@@ -420,7 +415,7 @@ export default function App() {
     <div id="app">
       {/* Top Header / Stats Bar */}
       <header className="header">
-        <div className="header__brand">
+        <div className="header__brand" style={{ cursor: 'pointer' }} onClick={() => navigate('/')} title="Return to Landing Page">
           <span className="header__logo">🌊</span>
           <div>
             <h1 className="header__title">PROJECT HYDRA</h1>
@@ -430,26 +425,25 @@ export default function App() {
 
         <div className="header__stats">
           <div className="stat-pill stat-pill--danger">
-            <span>Severe Risks:</span>
-            <span className="stat-pill__value">{
-              features.filter(f => (!selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' ')))) && f.properties.risk_level === 'severe').length
-            } {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
+            <span>Severe:</span>
+            <span className="stat-pill__value">{riskCounts.severe} Districts</span>
           </div>
           <div className="stat-pill stat-pill--warning">
             <span>High Risk:</span>
-            <span className="stat-pill__value">{
-              features.filter(f => (!selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' ')))) && f.properties.risk_level === 'high').length
-            } {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
+            <span className="stat-pill__value">{riskCounts.high} Districts</span>
           </div>
           <div className="stat-pill">
-            <span>Active Region:</span>
-            <span className="stat-pill__value">{DEMO_REGIONS[selectedRegion]?.name.split(' ')[0]}</span>
+            <span>Moderate:</span>
+            <span className="stat-pill__value">{riskCounts.moderate} Districts</span>
           </div>
-          {isLoading && (
-            <div className="stat-pill">
-              <span>⏳ Loading model data...</span>
-            </div>
-          )}
+          <div className="stat-pill stat-pill--safe">
+            <span>Low:</span>
+            <span className="stat-pill__value">{riskCounts.low} Districts</span>
+          </div>
+          <div className="stat-pill">
+            <span>📅</span>
+            <span className="stat-pill__value">{getCalendarDate(timelineDay, 'full')}</span>
+          </div>
         </div>
 
         <div className="header__controls">
@@ -480,17 +474,17 @@ export default function App() {
           </div>
 
           {/* Map Theme Toggle */}
-          <select 
+          <select
             className="select-control"
             value={currentStyle}
             onChange={(e) => changeMapStyle(e.target.value)}
           >
-            <option value="dark">🗺️ Dark Map (Labeled)</option>
-            <option value="satellite">🛰️ Satellite View (ESRI)</option>
+            <option value="dark">🗺️ Dark Map</option>
+            <option value="satellite">🛰️ Satellite</option>
           </select>
 
-          {/* Preset Demo Regions */}
-          <select 
+          {/* Region Selector */}
+          <select
             className="select-control"
             value={selectedRegion}
             onChange={(e) => handleRegionChange(e.target.value)}
@@ -500,32 +494,35 @@ export default function App() {
             ))}
           </select>
 
-          {/* Zone vs District toggle */}
-          <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.07)', borderRadius: '8px', padding: '3px' }}>
-            <button
-              onClick={() => setViewMode('zones')}
-              style={{
-                padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                background: viewMode === 'zones' ? 'var(--accent)' : 'transparent',
-                color: viewMode === 'zones' ? '#fff' : 'var(--text-muted)',
-                transition: 'all 0.2s',
-              }}
-            >🗺️ 5km Zones</button>
-            <button
-              onClick={() => setViewMode('districts')}
-              style={{
-                padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                background: viewMode === 'districts' ? 'var(--accent)' : 'transparent',
-                color: viewMode === 'districts' ? '#fff' : 'var(--text-muted)',
-                transition: 'all 0.2s',
-              }}
-            >📍 Districts</button>
-          </div>
+          {/* View Mode Toggle */}
+          <select
+            className="select-control"
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+          >
+            <option value="districts">🏛️ District View</option>
+            <option value="zones">🔬 5km Grid</option>
+          </select>
         </div>
       </header>
 
       {/* Main Map Content Area */}
       <div className="main-content">
+        {/* Loading Overlay */}
+        {isLoading && (
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(2, 6, 16, 0.7)', zIndex: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(4px)'
+          }}>
+            <div style={{ textAlign: 'center', color: 'var(--text-accent)' }}>
+              <div className="spinner" style={{ margin: '0 auto 12px' }}></div>
+              <div style={{ fontSize: 'var(--text-sm)' }}>Loading predictions for {getCalendarDate(timelineDay, 'full')}...</div>
+            </div>
+          </div>
+        )}
+
         {/* Floating Toggle Button */}
         <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? '✕' : '☰'}
@@ -535,47 +532,76 @@ export default function App() {
         <div className="map-container">
           <div id="map" ref={mapContainer} />
 
+          {/* Emerging Factors toggle button */}
+          <button
+            className="efp-toggle-btn"
+            onClick={() => setEfpOpen(!efpOpen)}
+            title="Emerging Factors Panel"
+          >
+            🔬 {efpOpen ? 'Close' : 'Factors'}
+          </button>
+
           {/* Map Legend */}
           <div className="map-legend">
             <div className="map-legend__title">Risk Index Scale</div>
             <div className="map-legend__items">
               <div className="map-legend__item">
                 <div className="map-legend__color" style={{ background: 'var(--risk-severe)' }}></div>
-                <span>Severe (0.8 - 1.0)</span>
+                <span>Severe (≥ 0.60)</span>
               </div>
               <div className="map-legend__item">
                 <div className="map-legend__color" style={{ background: 'var(--risk-high)' }}></div>
-                <span>High (0.6 - 0.8)</span>
+                <span>High (0.35 – 0.60)</span>
               </div>
               <div className="map-legend__item">
                 <div className="map-legend__color" style={{ background: 'var(--risk-moderate)' }}></div>
-                <span>Moderate (0.4 - 0.6)</span>
+                <span>Moderate (0.15 – 0.35)</span>
               </div>
               <div className="map-legend__item">
                 <div className="map-legend__color" style={{ background: 'var(--risk-low)' }}></div>
-                <span>Low (&lt; 0.4)</span>
+                <span>Low (&lt; 0.15)</span>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Emerging Factors Panel */}
+        {(() => {
+          const matchedFeature = features.find(f => f.properties.id === selectedCell?.id);
+          const coords = matchedFeature?.geometry?.coordinates?.[0];
+          let cLat = 26.15, cLon = 92.8;
+          if (coords && coords.length > 0) {
+            cLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+            cLon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+          }
+          return (
+            <EmergingFactorsPanel
+              lat={cLat}
+              lon={cLon}
+              locationName={selectedCell?.region || 'Selected Location'}
+              isOpen={efpOpen}
+              onClose={() => setEfpOpen(false)}
+            />
+          );
+        })()}
+
         {/* Detail Panel (Slide-in Inspect Overlay) */}
         {selectedCell && (
           <div className={`detail-panel ${detailOpen ? 'detail-panel--open' : ''}`}>
             <div className="detail-panel__header">
-              <h2 className="detail-panel__title">Cell Risk Analysis</h2>
+              <h2 className="detail-panel__title">Risk Analysis</h2>
               <button className="detail-panel__close" onClick={() => setDetailOpen(false)}>✕</button>
             </div>
 
             <div className="detail-panel__body">
               <div className="risk-gauge">
                 <div className="risk-gauge__circle" style={{
-                  '--gauge-color': selectedCell.risk_level === 'severe' ? 'var(--risk-severe)' : 'var(--risk-high)',
-                  '--gauge-pct': `${selectedCell.risk_score * 100}%`
+                  '--gauge-color': getRiskColor(selectedCell.risk_level),
+                  '--gauge-pct': `${(selectedCell.risk_score || 0) * 100}%`
                 }}>
                   <span className="risk-gauge__value">{selectedCell.risk_score}</span>
                 </div>
-                <div className="risk-gauge__label" style={{ color: selectedCell.risk_level === 'severe' ? 'var(--risk-severe)' : 'var(--risk-high)' }}>
+                <div className="risk-gauge__label" style={{ color: getRiskColor(selectedCell.risk_level) }}>
                   {selectedCell.risk_level} Risk
                 </div>
               </div>
@@ -583,8 +609,19 @@ export default function App() {
               <div className="detail-section">
                 <div className="detail-section__title">Target Region</div>
                 <p style={{ fontWeight: 600 }}>{selectedCell.region}</p>
-                <span className={`model-badge model-badge--${selectedCell.model_type}`} style={{ marginTop: '6px' }}>
-                  {selectedCell.model_type} Model
+                <span className={`model-badge model-badge--${selectedCell.model_type || 'flood'}`} style={{ marginTop: '6px' }}>
+                  {(selectedCell.model_type || 'flood')} Model
+                </span>
+              </div>
+
+              {/* Forecast Date */}
+              <div className="detail-section">
+                <div className="detail-section__title">📅 Forecast Date</div>
+                <p style={{ fontWeight: 600, color: 'var(--text-accent)', fontSize: 'var(--text-lg)' }}>
+                  {getCalendarDate(timelineDay, 'full')}
+                </p>
+                <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
+                  {getDayBadge(timelineDay)} · Day {timelineDay > 0 ? `+${timelineDay}` : timelineDay}
                 </span>
               </div>
 
@@ -592,21 +629,21 @@ export default function App() {
                 <div className="detail-section__title">Environmental Factors</div>
                 {selectedCell.factors && Object.entries(typeof selectedCell.factors === 'string' ? JSON.parse(selectedCell.factors) : selectedCell.factors).map(([key, value]) => (
                   <div className="factor-row" key={key}>
-                    <span className="factor-row__label">{key.replace('_', ' ').toUpperCase()}</span>
+                    <span className="factor-row__label">{key.replace(/_/g, ' ').toUpperCase()}</span>
                     <span className="factor-row__value">{value}</span>
                   </div>
                 ))}
               </div>
 
               <div className="detail-section">
-                <div className="detail-section__title">Simulated Alert Advisory</div>
+                <div className="detail-section__title">Alert Advisory</div>
                 <div className="detail-alert-preview">
-                  <div><strong>Days to Event:</strong> {selectedCell.days_to_event} Days Out</div>
+                  <div><strong>Predicted Event:</strong> {getCalendarDate(selectedCell.days_to_event || 0, 'full')}</div>
                   <div className="detail-alert-preview__action">
                     {selectedCell.alert_message}
                   </div>
                 </div>
-                <button className="btn-sms" onClick={() => alert(`Simulated SMS Sent to test numbers: "${selectedCell.alert_message}"`)}>
+                <button className="btn-sms" onClick={() => alert(`Simulated SMS: "${selectedCell.alert_message}"`)}>
                   📲 Test Trigger SMS Alert
                 </button>
               </div>
@@ -618,54 +655,60 @@ export default function App() {
         <aside className={`sidebar ${!sidebarOpen ? 'sidebar--collapsed' : ''}`}>
           <div className="sidebar__header">
             <div className="sidebar__title">
-              Active Alerts <span className="sidebar__badge">{
-                features.filter(f => !selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' ')))).length
-              } LIVE</span>
+              Active Alerts <span className="sidebar__badge">{features.length} LIVE</span>
+            </div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+              📅 {getCalendarDate(timelineDay, 'full')} · {getDayBadge(timelineDay)}
             </div>
           </div>
 
           <div className="sidebar__content">
-            {features
-              .filter(f => !selectedRegion || selectedRegion === 'all_floods' || f.properties.state === selectedRegion || (f.properties.region && f.properties.region.toLowerCase().includes(selectedRegion.replace('_', ' '))))
-              .map((feature) => {
-                const p = feature.properties;
-                return (
-                  <div
-                    key={p.id}
-                    className={`alert-card alert-card--${p.risk_level}`}
-                    onClick={() => {
-                      setSelectedCell(p);
-                      setDetailOpen(true);
-                      // Fly to feature center
-                      const coords = feature.geometry.coordinates[0][0];
-                      if (map.current) {
-                        map.current.flyTo({ center: coords, zoom: 9, duration: 1500 });
-                      }
-                    }}
-                  >
-                    <div className="alert-card__header">
-                      <span className={`alert-card__level alert-card__level--${p.risk_level}`}>
-                        {p.risk_level}
-                      </span>
-                      <span className="alert-card__days">{p.days_to_event}d forecast</span>
-                    </div>
-                    <div className="alert-card__region">{p.region}</div>
-                    <div className="alert-card__action">{p.alert_message}</div>
-                    <div className="alert-card__meta">
-                      <span className="alert-card__score">SCORE: {p.risk_score}</span>
-                      <span className="alert-card__type">{p.model_type ? p.model_type.toUpperCase() : 'FLOOD'}</span>
-                    </div>
+            {features.filter(f => f.properties.risk_level === 'severe' || f.properties.risk_level === 'high').slice(0, 20).map((feature) => {
+              const p = feature.properties;
+              return (
+                <div
+                  key={p.id}
+                  className={`alert-card alert-card--${p.risk_level}`}
+                  onClick={() => {
+                    setSelectedCell(p);
+                    setDetailOpen(true);
+                    const coords = feature.geometry?.coordinates?.[0]?.[0];
+                    if (map.current && coords) {
+                      map.current.flyTo({ center: coords, zoom: 9, duration: 1500 });
+                    }
+                  }}
+                >
+                  <div className="alert-card__header">
+                    <span className={`alert-card__level alert-card__level--${p.risk_level}`}>
+                      {p.risk_level}
+                    </span>
+                    <span className="alert-card__days">{getCalendarDate(timelineDay)}</span>
                   </div>
-                );
-              })}
+                  <div className="alert-card__region">{p.region}</div>
+                  <div className="alert-card__action">{p.alert_message}</div>
+                  <div className="alert-card__meta">
+                    <span className="alert-card__score">SCORE: {p.risk_score}</span>
+                    <span className="alert-card__type">{(p.model_type || 'FLOOD').toUpperCase()}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {features.filter(f => f.properties.risk_level === 'severe' || f.properties.risk_level === 'high').length === 0 && (
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                ✅ No severe or high risk alerts for {getCalendarDate(timelineDay, 'full')}
+              </div>
+            )}
           </div>
         </aside>
       </div>
 
-      {/* Timeline Bar (Section 8) */}
+      {/* Timeline Bar */}
       <div className="timeline-bar">
         <div className="timeline-bar__controls">
-          <button className="timeline-btn" onClick={() => setTimelineDay(0)}>Today</button>
+          <button className={`timeline-btn ${timelineDay === -7 ? 'timeline-btn--active' : ''}`} onClick={() => setTimelineDay(-7)}>-7d</button>
+          <button className={`timeline-btn ${timelineDay === 0 ? 'timeline-btn--active' : ''}`} onClick={() => setTimelineDay(0)}>Today</button>
+          <button className={`timeline-btn ${timelineDay === 7 ? 'timeline-btn--active' : ''}`} onClick={() => setTimelineDay(7)}>+7d</button>
+          <button className={`timeline-btn ${timelineDay === 15 ? 'timeline-btn--active' : ''}`} onClick={() => setTimelineDay(15)}>+15d</button>
         </div>
 
         <div className="timeline-bar__slider-wrap">
@@ -678,17 +721,30 @@ export default function App() {
             className="timeline-slider"
           />
           <div className="timeline-bar__dates">
-            <span className="timeline-bar__date-label">-7 Days (Past)</span>
-            <span className="timeline-bar__date-label timeline-bar__date-label--today">Today (Day 0)</span>
-            <span className="timeline-bar__date-label timeline-bar__date-label--forecast">+15 Days (Forecast)</span>
+            <span className="timeline-bar__date-label">{getCalendarDate(-7)} (Past)</span>
+            <span className="timeline-bar__date-label timeline-bar__date-label--today">Today · {getCalendarDate(0)}</span>
+            <span className="timeline-bar__date-label timeline-bar__date-label--forecast">{getCalendarDate(15)} (Forecast)</span>
           </div>
         </div>
 
         <div className="timeline-bar__current-date">
-          Day Selected: {timelineDay > 0 ? `+${timelineDay}` : timelineDay}
-          {timelineDay > 0 && <span className="timeline-bar__forecast-badge">Forecast</span>}
+          📅 {getCalendarDate(timelineDay, 'full')} · Day {timelineDay > 0 ? `+${timelineDay}` : timelineDay}
+          <span className="timeline-bar__forecast-badge">{getDayBadge(timelineDay)}</span>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/welcome" element={<LandingPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

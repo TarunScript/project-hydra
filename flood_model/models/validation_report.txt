@@ -1,0 +1,47 @@
+
+Assam Flood Model Validation Report
+=====================================
+Validation Date: 2026-08-09 02:24
+Test: 2020 Assam Major Flood
+
+2020 Known Flood District Risk Scores (Jun-Sep avg):
+district_name
+DHEMAJI                0.928751
+LAKHIMPUR              0.922167
+BARPETA                0.883341
+CHIRANG                0.867173
+NAGAON                 0.850355
+DIBRUGARH              0.847232
+DARRANG                0.810836
+JORHAT                 0.810825
+SIVASAGAR              0.787042
+GOALPARA               0.774211
+SONITPUR               0.744282
+GOLAGHAT               0.735873
+NALBARI                0.709107
+KAMRUP                 0.681700
+TINSUKIA               0.638426
+BONGAIGAON             0.627486
+DHUBRI                 0.551185
+UDALGURI               0.500236
+KOKRAJHAR              0.494578
+BAKSA                  0.490570
+CACHAR                 0.439829
+KARBI ANGLONG          0.426424
+HAILAKANDI             0.184200
+KARIMGANJ              0.147541
+DIMA HASAO             0.084793
+MORIGAON               0.003819
+KAMRUP METROPOLITAN    0.001747
+
+ROC-AUC by Year:
+       roc_auc    pr_auc
+2015  0.982105  0.978979
+2016  0.946649  0.895225
+2017  0.913035  0.921367
+2018  0.898223  0.838492
+2019  0.959097  0.837104
+2020  0.988473  0.993226
+2021  0.927892  0.772368
+2022  0.918017  0.920192
+2023  0.978649  0.970240

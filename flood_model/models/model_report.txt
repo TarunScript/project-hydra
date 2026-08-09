@@ -1,0 +1,39 @@
+
+Assam Flood Risk Model — Training Report
+==========================================
+Model: XGBoost
+Target: is_flood_any (binary)
+Features: 24
+Training date: 2026-08-09 02:24
+
+Metrics on Hold-out Test Set (20%):
+  ROC-AUC:  0.9368
+  PR-AUC:   0.9071
+
+              precision    recall  f1-score   support
+
+    No Flood       0.92      0.82      0.87     75349
+       Flood       0.77      0.89      0.82     50806
+
+    accuracy                           0.85    126155
+   macro avg       0.84      0.85      0.84    126155
+weighted avg       0.86      0.85      0.85    126155
+
+
+Feature Importance (top 15):
+              feature  importance
+ hist_flood_frequency    0.159404
+                month    0.126340
+           dfsi_score    0.071330
+  mean_flood_duration    0.064601
+     pct_flooded_area    0.058932
+           sm_surface    0.048659
+historical_fatalities    0.047685
+         rain_anomaly    0.044693
+           rain_1d_mm    0.040106
+           population    0.038279
+           rain_7d_mm    0.037240
+           built_frac    0.034387
+           rain_3d_mm    0.033535
+   rain_daily_mean_mm    0.031645
+          sm_rootzone    0.031405
