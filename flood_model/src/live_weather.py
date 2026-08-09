@@ -51,7 +51,54 @@ STATE_CLIMATOLOGY = {
 }
 
 CACHE: dict = {}   # in-memory cache: (lat_r, lon_r, month, day_offset, state_key) → weather dict
-CACHE_TIMEOUT_MINS = 30
+
+WEATHER_STATUS = {
+    "status": "ok",
+    "warning": None,
+    "rate_limited": False
+}
+
+
+def get_weather_system_status() -> dict:
+    """Return the global weather API status and any warning messages."""
+    return WEATHER_STATUS
+
+
+def _get_climatology_fallback(lat: float, lon: float, month: int, day_offset: int, state_key: str, warning_msg: str) -> dict:
+    """Generate a realistic climatology fallback feature dictionary when Open-Meteo is unavailable or rate-limited."""
+    clim_mean, clim_std = STATE_CLIMATOLOGY.get(state_key, {}).get(month, (300.0, 140.0))
+    # Base daily rain derived from monthly mean
+    base_daily = clim_mean / 30.0
+    rain_daily_mean_mm = round(max(1.0, base_daily), 2)
+    rain_7d_mm = round(rain_daily_mean_mm * 7.0, 2)
+    rain_3d_mm = round(rain_daily_mean_mm * 3.0, 2)
+    rain_1d_mm = round(rain_daily_mean_mm, 2)
+    rain_monthly_mm = round(clim_mean, 2)
+    rain_anomaly = 0.0
+
+    sm_surface = 0.35
+    sm_rootzone = 0.40
+
+    if day_offset > 0:
+        sm_surface = round(min(0.85, max(0.10, sm_surface * (0.96 ** day_offset))), 4)
+        sm_rootzone = round(min(0.85, max(0.12, sm_rootzone * (0.98 ** day_offset))), 4)
+
+    return {
+        "rain_monthly_mm": rain_monthly_mm,
+        "rain_7d_mm": rain_7d_mm,
+        "rain_3d_mm": rain_3d_mm,
+        "rain_1d_mm": rain_1d_mm,
+        "rain_daily_mean_mm": rain_daily_mean_mm,
+        "rain_anomaly": rain_anomaly,
+        "sm_surface": sm_surface,
+        "sm_rootzone": sm_rootzone,
+        "day_offset": day_offset,
+        "_source": "climatology-fallback",
+        "_warning": warning_msg,
+        "_fetched": datetime.date.today().isoformat(),
+        "_lat": round(lat, 3),
+        "_lon": round(lon, 3),
+    }
 
 
 def get_live_weather_features(
@@ -64,7 +111,10 @@ def get_live_weather_features(
 ) -> dict:
     """
     Fetch live weather features from Open-Meteo for a given lat/lon, day offset, and state.
+    Falls back gracefully to climatology baseline if Open-Meteo is rate-limited (HTTP 429/503) or offline.
     """
+    global WEATHER_STATUS
+
     if month is None:
         month = datetime.date.today().month
 
@@ -94,9 +144,24 @@ def get_live_weather_features(
             "forecast_days":  16,  # Day 0 to Day +15
             "timezone":       "Asia/Kolkata",
         }
-        resp = requests.get(FORECAST_URL, params=params, timeout=12)
+        resp = requests.get(FORECAST_URL, params=params, timeout=10)
+        
+        if resp.status_code in (429, 503):
+            WEATHER_STATUS["status"] = "rate_limited" if resp.status_code == 429 else "degraded"
+            WEATHER_STATUS["rate_limited"] = True
+            WEATHER_STATUS["warning"] = f"Open-Meteo API rate limit reached (HTTP {resp.status_code}). Active fallback: Climatological Baseline."
+            fallback = _get_climatology_fallback(lat, lon, month, day_offset, state_key, WEATHER_STATUS["warning"])
+            CACHE[cache_key] = fallback
+            return fallback
+
         resp.raise_for_status()
         data = resp.json()
+
+        # Success - reset status to OK
+        if WEATHER_STATUS["status"] != "ok":
+            WEATHER_STATUS["status"] = "ok"
+            WEATHER_STATUS["warning"] = None
+            WEATHER_STATUS["rate_limited"] = False
 
         daily_rain = data["daily"]["precipitation_sum"]
         all_rains  = [r or 0.0 for r in daily_rain]
@@ -161,9 +226,12 @@ def get_live_weather_features(
         return result
 
     except Exception as e:
+        WEATHER_STATUS["status"] = "degraded"
+        WEATHER_STATUS["warning"] = f"Open-Meteo connection issue ({e}). Using climatological baseline fallback."
         print(f"  ⚠ Live weather fetch failed for ({lat:.2f},{lon:.2f}): {e}")
-        return None
-        return None
+        fallback = _get_climatology_fallback(lat, lon, month, day_offset, state_key, WEATHER_STATUS["warning"])
+        CACHE[cache_key] = fallback
+        return fallback
 
 
 def get_district_weather(district_centroids: list[dict], month: int | None = None) -> dict:

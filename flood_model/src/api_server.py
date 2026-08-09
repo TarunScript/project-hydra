@@ -20,11 +20,12 @@ from datetime import datetime
 import sys, os
 sys.path.insert(0, str(Path(__file__).parent))
 try:
-    from live_weather import get_live_weather_features, clear_cache
+    from live_weather import get_live_weather_features, clear_cache, get_weather_system_status
     LIVE_WEATHER_ENABLED = True
-    print("  ✓ Live weather module loaded (Open-Meteo)")
+    print("  ✓ Live weather module loaded (Open-Meteo + Climatology Fallback)")
 except ImportError:
     LIVE_WEATHER_ENABLED = False
+    get_weather_system_status = lambda: {"status": "disabled", "warning": "live_weather module not loaded", "rate_limited": False}
     print("  ⚠ live_weather.py not found — falling back to historical data")
 
 try:
@@ -67,6 +68,26 @@ def get_risk_level(score):
     if score >= 0.35: return "high"
     if score >= 0.15: return "moderate"
     return "low"
+
+# ── Calibrated scoring using raw margins ──
+# predict_proba gives binary 0/1 because the model is very confident.
+# Raw margins (log-odds) have continuous variation; applying a softer
+# sigmoid spreads them into a realistic risk gradient.
+CALIBRATION_TEMP = 4.0
+
+def calibrated_score_single(model_obj, X_df):
+    """Get a calibrated risk score for a single sample using raw margins."""
+    import xgboost as xgb
+    dmat = xgb.DMatrix(X_df, feature_names=list(X_df.columns))
+    margin = float(model_obj.get_booster().predict(dmat, output_margin=True)[0])
+    return float(1.0 / (1.0 + np.exp(-margin / CALIBRATION_TEMP)))
+
+def calibrated_scores_batch(model_obj, X_df):
+    """Get calibrated risk scores for a batch of samples using raw margins."""
+    import xgboost as xgb
+    dmat = xgb.DMatrix(X_df, feature_names=list(X_df.columns))
+    margins = model_obj.get_booster().predict(dmat, output_margin=True)
+    return 1.0 / (1.0 + np.exp(-margins / CALIBRATION_TEMP))
 
 def get_alert_message(district, risk_level, factors):
     messages = {
@@ -367,8 +388,8 @@ def risk_grid_flood(region=None):
 
             X = X[FEATURE_COLS].fillna(X.median())
 
-            # Predict risk using TRAINING features (stable baseline)
-            base_score = float(model.predict_proba(X)[:, 1][0])
+            # Predict risk using calibrated raw margins (stable gradient)
+            base_score = calibrated_score_single(model, X)
 
             # Apply small weather-responsive adjustment based on live rain
             training_rain_7d = float(X["rain_7d_mm"].values[0]) if "rain_7d_mm" in X.columns else 70.0
@@ -449,6 +470,8 @@ def risk_grid_flood(region=None):
             "year": year,
             "model": "XGBoost Multistate v1",
             "districts": len(features_list),
+            "weather_status": get_weather_system_status().get("status", "ok"),
+            "weather_warning": get_weather_system_status().get("warning"),
         }
     })
 
@@ -472,7 +495,7 @@ def list_districts():
         X["month"] = month
         X = X[FEATURE_COLS].fillna(X.median())
 
-        risk_score = float(model.predict_proba(X)[:, 1][0])
+        risk_score = calibrated_score_single(model, X)
 
         districts.append({
             "district_name": district,
@@ -539,7 +562,7 @@ def risk_grid_cells(region=None):
     X = month_df[_non_month_feats].copy()
     X["month"] = month
     X = X[FEATURE_COLS].fillna(X.median())
-    base_scores = model.predict_proba(X)[:, 1]
+    base_scores = calibrated_scores_batch(model, X)
 
     # Apply per-district weather adjustment
     adjustments = np.zeros(len(month_df))

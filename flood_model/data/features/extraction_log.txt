@@ -1,0 +1,406 @@
+╔══════════════════════════════════════════════════════════════╗
+║  Task 2: GEE Feature Pipeline                              ║
+║  Region: Assam [[89.7, 24.1, 96.0, 28.2]]             ║
+║  Project: dotted-embassy-463007-c1                    ║
+╚══════════════════════════════════════════════════════════════╝
+  Initializing GEE...
+  ✓ GEE initialized with project: dotted-embassy-463007-c1
+  Grid: 11681 cells at 5000m scale over Assam
+
+============================================================
+STATIC FEATURE EXTRACTION
+============================================================
+
+  Computing static features...
+  ✓ Static bands: ['elevation', 'slope', 'flow_acc', 'dist_to_river', 'water_occurrence']
+  Reducing to per-cell values...
+  Converting to DataFrame...
+  ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+  ✓ Static features: (11681, 7)
+  Columns: ['dist_to_river', 'elevation', 'flow_acc', 'slope', 'water_occurrence', 'cell_lon', 'cell_lat']
+  ✓ Saved: /Users/vishwashv/Desktop/Google Login page/Aes_ecm_128/TouchRecord/HackVerse /HackVerse 2.0/project-hydra/flood_model/data/features/gee_static_features.csv
+
+============================================================
+DYNAMIC FEATURE EXTRACTION
+============================================================
+  Extracting 54 months: 2015–2023, months [5, 6, 7, 8, 9, 10]
+  This may take a while...
+
+  Extracting 2015-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2015-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2015-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2015-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2015-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2015-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (6/54 months)
+  Extracting 2016-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2016-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2016-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2016-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2016-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2016-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (12/54 months)
+  Extracting 2017-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2017-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2017-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2017-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2017-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2017-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (18/54 months)
+  Extracting 2018-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2018-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2018-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2018-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2018-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2018-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (24/54 months)
+  Extracting 2019-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2019-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2019-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2019-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2019-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2019-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (30/54 months)
+  Extracting 2020-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2020-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2020-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2020-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2020-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2020-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (36/54 months)
+  Extracting 2021-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2021-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2021-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2021-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2021-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2021-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (42/54 months)
+  Extracting 2022-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2022-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2022-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2022-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2022-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2022-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (48/54 months)
+  Extracting 2023-05...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2023-06...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2023-07...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2023-08...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2023-09...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  Extracting 2023-10...   ⚠ geemap.ee_to_df failed (Cannot specify both 'axis' and 'index'/'columns'), falling back to chunked getInfo...
+  Paginating 11681 features in chunks of 4000...
+    Fetched 4000/11681
+    Fetched 8000/11681
+    Fetched 11681/11681
+done (11681 cells, all columns populated)
+  💾 Progress saved (54/54 months)
+
+  ✓ Dynamic features saved: /Users/vishwashv/Desktop/Google Login page/Aes_ecm_128/TouchRecord/HackVerse /HackVerse 2.0/project-hydra/flood_model/data/features/gee_dynamic_features.csv
+  Shape: (630774, 16)
+
+============================================================
+MERGING STATIC + DYNAMIC
+============================================================
+  Merged on ['cell_lat', 'cell_lon']
+
+============================================================
+FEATURE EXTRACTION VERIFICATION
+============================================================
+  Output: /Users/vishwashv/Desktop/Google Login page/Aes_ecm_128/TouchRecord/HackVerse /HackVerse 2.0/project-hydra/flood_model/data/features/features.csv
+  Shape: (630774, 21)
+  Columns: ['et_mm', 'lst_day_k', 'rain_1d_mm', 'rain_3d_mm', 'rain_7d_mm', 'rain_anomaly', 'rain_daily_mean_mm', 'rain_monthly_mm', 'sm_rootzone', 'sm_surface', 'cell_lon', 'cell_lat', 'year', 'month', 'built_frac', 'water_frac', 'dist_to_river', 'elevation', 'flow_acc', 'slope', 'water_occurrence']
+  Row count: 630,774
+
+  Null/empty column check:
+    ~ et_mm: 0.0% null
+    ~ lst_day_k: 5.7% null
+    ✓ rain_1d_mm: complete
+    ✓ rain_3d_mm: complete
+    ✓ rain_7d_mm: complete
+    ✓ rain_anomaly: complete
+    ✓ rain_daily_mean_mm: complete
+    ✓ rain_monthly_mm: complete
+    ✓ sm_rootzone: complete
+    ✓ sm_surface: complete
+    ✓ cell_lon: complete
+    ✓ cell_lat: complete
+    ✓ year: complete
+    ✓ month: complete
+    ⚠ built_frac: 26.3% null
+    ⚠ water_frac: 26.3% null
+    ✓ dist_to_river: complete
+    ✓ elevation: complete
+    ✓ flow_acc: complete
+    ✓ slope: complete
+    ✓ water_occurrence: complete
+
+  ✓ Task 2 complete.

@@ -166,6 +166,7 @@ function Dashboard() {
   const [selectedRegion, setSelectedRegion] = useState('all_floods');
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('districts');
+  const [weatherWarning, setWeatherWarning] = useState(null);
 
   // Emerging Factors panel state
   const [efpOpen, setEfpOpen] = useState(false);
@@ -211,6 +212,8 @@ function Dashboard() {
         res = await fetch(altUrl);
       }
       const data = await res.json();
+
+      setWeatherWarning(data.metadata?.weather_warning || null);
 
       if (data.features && data.features.length > 0) {
         setFeatures(data.features);
@@ -508,6 +511,20 @@ function Dashboard() {
 
       {/* Main Map Content Area */}
       <div className="main-content">
+        {/* Weather API Degradation / Rate Limit Warning Toast Banner */}
+        {weatherWarning && (
+          <div style={{
+            position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 950, background: 'rgba(234, 179, 8, 0.18)', border: '1px solid rgba(234, 179, 8, 0.5)',
+            backdropFilter: 'blur(16px)', borderRadius: '9999px', padding: '6px 18px',
+            fontSize: '0.75rem', color: '#fef08a', display: 'flex', alignItems: 'center', gap: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)', fontWeight: 500
+          }}>
+            <span>⚠️</span>
+            <span>{weatherWarning}</span>
+            <button onClick={() => setWeatherWarning(null)} style={{ background: 'none', border: 'none', color: '#fef08a', cursor: 'pointer', marginLeft: '6px', fontSize: '0.9rem' }}>✕</button>
+          </div>
+        )}
         {/* Loading Overlay */}
         {isLoading && (
           <div style={{

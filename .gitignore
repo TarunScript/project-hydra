@@ -34,3 +34,4 @@ flood_model/.venv/
 flood_model/data/features/*.csv
 flood_model/data/features/*/*.csv
 
+shanmuk_frontend/
