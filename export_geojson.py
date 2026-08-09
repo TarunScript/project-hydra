@@ -32,7 +32,10 @@ def main():
     out_dir = base_dir / "output" / "geojson"
     out_dir.mkdir(parents=True, exist_ok=True)
     
-    projections_file = data_dir / "drought_projections.csv"
+    projections_file = data_dir / "drought_projections_atlas_enriched.csv"
+    if not projections_file.exists():
+        projections_file = data_dir / "drought_projections.csv"
+        
     if not projections_file.exists():
         print(f"Projections file not found at {projections_file}. Please run project_drought_risk.py first.")
         return
@@ -62,15 +65,19 @@ def main():
                 "lat": lat,
                 "lon": lon,
                 "date": date,
+                "region": region,
+                "district": row.get('district', 'Unknown'),
                 "risk_score": round(risk_score, 4),
                 "risk_level": risk_level,
                 "risk_color": risk_color,
                 "rain_deficit_30d_mm": round(row.get('rain_30d_deficit_mm', 0.0), 4),
                 "ndvi_anomaly": round(row.get('ndvi_anomaly', 0.0), 4),
                 "soil_moisture_rootzone": round(row.get('sm_rootzone', 0.0), 4),
-                "dry_spell_days": row.get('dry_spell_days', 0),
+                "dry_spell_days": int(row['dry_spell_days']) if pd.notna(row.get('dry_spell_days')) else 0,
                 "projection_7d_risk": round(row.get('risk_7d', 0.0), 4),
                 "projection_15d_risk": round(row.get('risk_15d', 0.0), 4),
+                "atlas_spi_score": round(row.get('atlas_spi_score', 0.0), 4) if 'atlas_spi_score' in row else None,
+                "atlas_drought_category": row.get('atlas_drought_category', 'N/A') if 'atlas_drought_category' in row else 'N/A',
                 "projection_label": row.get('projection_label', 'Trend projection (not a forecast)')
             }
             

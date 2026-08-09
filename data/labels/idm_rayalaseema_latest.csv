@@ -1,0 +1,5 @@
+district,state,state_id,none_pct,d0_pct,d1_pct,d2_pct,d3_pct,d4_pct,drought_pct
+Anantapur,Andhra Pradesh,28,0.0,0.0,20.0,50.0,30.0,0.0,100.0
+Chittoor,Andhra Pradesh,28,10.0,20.0,40.0,30.0,0.0,0.0,90.0
+Kadapa,Andhra Pradesh,28,0.0,20.0,40.0,40.0,0.0,0.0,100.0
+Kurnool,Andhra Pradesh,28,0.0,20.0,50.0,30.0,0.0,0.0,100.0

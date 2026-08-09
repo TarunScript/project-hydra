@@ -37,6 +37,7 @@ REDUCE_SCALE = 500   # scale for reduceRegions (m) — balance speed vs accuracy
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
 # Demo regions: name -> [west, south, east, north] bounding box
+# Bounding boxes from drought_datasets_full_reference.md — DO NOT CHANGE
 REGIONS = {
     'marathwada': {
         'bbox': [75.0, 17.5, 78.5, 20.5],
@@ -44,12 +45,12 @@ REGIONS = {
         'description': 'Marathwada, Maharashtra'
     },
     'bundelkhand': {
-        'bbox': [78.0, 24.0, 81.5, 26.5],
+        'bbox': [78.1, 23.1, 81.5, 26.5],
         'utm_epsg': 'EPSG:32644',   # UTM 44N
         'description': 'Bundelkhand, UP/MP'
     },
     'rayalaseema': {
-        'bbox': [77.0, 14.5, 80.0, 16.5],
+        'bbox': [76.9, 12.5, 79.9, 16.25],
         'utm_epsg': 'EPSG:32644',   # UTM 44N
         'description': 'Rayalaseema, AP'
     },
@@ -349,13 +350,33 @@ def get_landcover_features(target_date_str, aoi):
 
     GEE ID: GOOGLE/DYNAMICWORLD/V1
     Resolution: 10m, updates every 2-5 days
+
+    NOTE: Dynamic World may have gaps in winter months or remote areas.
+    We extend the search window to 90 days and use constant fallback if empty.
     """
     target_date = ee.Date(target_date_str)
-    start = target_date.advance(-30, 'day')
 
-    dw = (ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
-          .filterDate(start, target_date)
-          .filterBounds(aoi))
+    # Try 30-day window first, then 90-day if empty
+    for window_days in [30, 90]:
+        start = target_date.advance(-window_days, 'day')
+        dw = (ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+              .filterDate(start, target_date)
+              .filterBounds(aoi))
+
+        count = dw.size().getInfo()
+        if count > 0:
+            print(f"         Dynamic World: {count} images in {window_days}-day window")
+            break
+    else:
+        # No Dynamic World data at all — use constant fallback
+        print(f"         Dynamic World: NO DATA — using constant fallback (0.0)")
+        fallback = ee.Image.constant(0).rename('urban_built_frac').toFloat()
+        return {
+            'urban_built_frac': fallback,
+            'landcover_class': ee.Image.constant(0).rename('landcover_class').toFloat(),
+            'cropland_frac': ee.Image.constant(0).rename('cropland_frac').toFloat(),
+            'bare_ground_frac': ee.Image.constant(0).rename('bare_ground_frac').toFloat(),
+        }
 
     # Built-up fraction (mean of 'built' probability band)
     built_frac = dw.select('built').mean().rename('urban_built_frac')
@@ -449,56 +470,74 @@ def build_features_for_date(target_date_str, region_name, region_config):
     except Exception as e:
         print(f"         WARNING: {e}")
 
-    # Stack all features into a single multi-band image
-    print(f"  Stacking {len(all_features)} feature bands...")
-    band_list = list(all_features.values())
-    stacked = band_list[0]
-    for band in band_list[1:]:
-        stacked = stacked.addBands(band)
-
-    # Reduce to one row per grid cell, in chunks to avoid GEE's 5000-element limit
+    # ---------------------------------------------------------------
+    # Instead of stacking all bands (which crashes if ANY band has
+    # empty pixels), reduce each feature independently and merge in
+    # pandas. Slower but bulletproof.
+    # ---------------------------------------------------------------
     CHUNK_SIZE = 4000
-    print(f"  Reducing to per-cell values (scale={REDUCE_SCALE}m, chunks of {CHUNK_SIZE})...")
-
     grid_list = grid.toList(grid_size + 1)
-    all_rows = []
     n_chunks = (grid_size + CHUNK_SIZE - 1) // CHUNK_SIZE
 
+    # First, get centroid coordinates for all cells
+    print(f"  Extracting cell coordinates...")
+    coord_rows = []
     for chunk_idx in range(n_chunks):
         start_idx = chunk_idx * CHUNK_SIZE
         end_idx = min(start_idx + CHUNK_SIZE, grid_size)
-        chunk_size = end_idx - start_idx
-        print(f"    Chunk {chunk_idx + 1}/{n_chunks} (cells {start_idx}-{end_idx-1})...")
-
         chunk_fc = ee.FeatureCollection(grid_list.slice(start_idx, end_idx))
+        info = chunk_fc.getInfo()
+        for feat in info['features']:
+            coord_rows.append(feat['properties'])
+    coord_df = pd.DataFrame(coord_rows)
+    print(f"    Got {len(coord_df)} cell coordinates")
 
-        cell_features = stacked.reduceRegions(
-            collection=chunk_fc,
-            reducer=ee.Reducer.mean(),
-            scale=REDUCE_SCALE,
-        )
+    # Now reduce each feature band separately
+    print(f"  Reducing {len(all_features)} feature bands individually (scale={REDUCE_SCALE}m)...")
+    feature_dfs = [coord_df]
 
+    for band_name, band_image in all_features.items():
+        print(f"    [{band_name}]...", end="", flush=True)
         try:
-            features_info = cell_features.getInfo()
-            chunk_features = features_info['features']
+            # Cast to float, unmask, clip
+            safe_image = band_image.toFloat().unmask(0).clip(aoi)
+
+            band_rows = []
+            for chunk_idx in range(n_chunks):
+                start_idx = chunk_idx * CHUNK_SIZE
+                end_idx = min(start_idx + CHUNK_SIZE, grid_size)
+                chunk_fc = ee.FeatureCollection(grid_list.slice(start_idx, end_idx))
+
+                reduced = safe_image.reduceRegions(
+                    collection=chunk_fc,
+                    reducer=ee.Reducer.mean(),
+                    scale=REDUCE_SCALE,
+                )
+                try:
+                    info = reduced.getInfo()
+                    for feat in info['features']:
+                        val = feat['properties'].get('mean', None)
+                        band_rows.append(val)
+                except Exception as e2:
+                    # If even the reduced band fails, fill with NaN
+                    chunk_size = end_idx - start_idx
+                    band_rows.extend([None] * chunk_size)
+                    print(f" (chunk {chunk_idx+1} failed: {e2})", end="")
+
+                time.sleep(0.5)
+
+            band_df = pd.DataFrame({band_name: band_rows})
+            feature_dfs.append(band_df)
+            print(f" OK ({len(band_rows)} values)")
+
         except Exception as e:
-            print(f"    WARNING: chunk failed at scale={REDUCE_SCALE} ({e})")
-            print(f"    Retrying chunk at scale=1000m...")
-            cell_features = stacked.reduceRegions(
-                collection=chunk_fc,
-                reducer=ee.Reducer.mean(),
-                scale=1000,
-            )
-            chunk_features = cell_features.getInfo()['features']
+            print(f" FAILED: {e}")
+            # Fill with NaN for this band
+            feature_dfs.append(pd.DataFrame({band_name: [None] * len(coord_df)}))
 
-        for feat in chunk_features:
-            all_rows.append(feat['properties'])
-        print(f"    Got {len(chunk_features)} rows")
-        time.sleep(1)  # brief pause between chunks
-
-    print(f"  Total downloaded: {len(all_rows)} rows")
-
-    df = pd.DataFrame(all_rows)
+    # Merge all feature columns
+    df = pd.concat(feature_dfs, axis=1)
+    print(f"  Total downloaded: {len(df)} rows")
 
     # Add metadata columns
     df['region'] = region_name
@@ -534,19 +573,26 @@ def build_all_features():
         region_dfs = []
 
         for date_str in TRAINING_DATES:
+            # Skip if already cached
+            date_safe = date_str.replace('-', '')
+            per_date_path = os.path.join(
+                OUTPUT_DIR, f'drought_features_{region_name}_{date_safe}.csv'
+            )
+            if os.path.exists(per_date_path) and os.path.getsize(per_date_path) > 1000:
+                print(f"\n  [CACHED] {region_name}/{date_str} -> {per_date_path}")
+                cached_df = pd.read_csv(per_date_path)
+                region_dfs.append(cached_df)
+                continue
+
             try:
                 df = build_features_for_date(date_str, region_name, region_config)
                 region_dfs.append(df)
 
-                # Save per-date file too
-                date_safe = date_str.replace('-', '')
-                per_date_path = os.path.join(
-                    OUTPUT_DIR, f'drought_features_{region_name}_{date_safe}.csv'
-                )
+                # Save per-date file (checkpoint)
                 df.to_csv(per_date_path, index=False)
                 print(f"  Saved: {per_date_path}")
 
-                # Rate limiting — be nice to GEE
+                # Rate limiting
                 time.sleep(2)
 
             except Exception as e:

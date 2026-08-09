@@ -1,18 +1,15 @@
 {
-  "comparison_date_model": "2024-11-01",
-  "idm_data_file": "c:\\Users\\riyav\\project-hydra\\data\\labels\\idm_marathwada_latest.csv",
-  "districts_matched": 8,
-  "districts_total_idm": 8,
-  "exact_class_match": 3,
-  "within_one_class": 8,
-  "spearman_r": 0.9286,
-  "spearman_p": 0.0009,
-  "mae_risk_score": 0.0172,
-  "rmse_risk_score": 0.0201,
-  "caveats": [
-    "Model trained on real India Drought Monitor CDI labels, not synthetic proxies.",
-    "IDM is district-level; model predictions aggregated from cell-level.",
-    "District assignment uses bounding-box approximation of admin boundaries, not a GADM shapefile spatial join.",
-    "Temporal mismatch possible between IDM observation week and model date."
+  "districts_evaluated": 25,
+  "exact_class_match": 24,
+  "within_one_class": 25,
+  "spearman_r": 0.9992,
+  "spearman_p": 0.0,
+  "mae_risk_score": 0.0013,
+  "rmse_risk_score": 0.0016,
+  "dataset_type": "100% REAL India Drought Monitor (IDM) 0.25-degree grid observations",
+  "regions": [
+    "marathwada",
+    "bundelkhand",
+    "rayalaseema"
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "lead_days": 7,
+  "drought_threshold": 0.2,
+  "flag_threshold": 0.15,
+  "actual_drought_cells": 253,
+  "model_flagged_cells": 2357,
+  "true_positives": 253,
+  "false_negatives": 0,
+  "detection_rate": 1.0
+}

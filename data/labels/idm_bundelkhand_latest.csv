@@ -1,0 +1,14 @@
+district,state,state_id,none_pct,d0_pct,d1_pct,d2_pct,d3_pct,d4_pct,drought_pct
+Banda,Uttar Pradesh,9,40.0,0.0,40.0,20.0,0.0,0.0,60.0
+Chitrakoot,Uttar Pradesh,9,20.0,50.0,30.0,0.0,0.0,0.0,80.0
+Hamirpur,Uttar Pradesh,9,40.0,0.0,50.0,10.0,0.0,0.0,60.0
+Jalaun,Uttar Pradesh,9,30.0,30.0,40.0,0.0,0.0,0.0,70.0
+Jhansi,Uttar Pradesh,9,20.0,0.0,60.0,20.0,0.0,0.0,80.0
+Lalitpur,Uttar Pradesh,9,10.0,0.0,20.0,40.0,30.0,0.0,90.0
+Mahoba,Uttar Pradesh,9,20.0,0.0,50.0,30.0,0.0,0.0,80.0
+Chhatarpur,Madhya Pradesh,23,30.0,0.0,45.0,25.0,0.0,0.0,70.0
+Damoh,Madhya Pradesh,23,40.0,40.0,20.0,0.0,0.0,0.0,60.0
+Datia,Madhya Pradesh,23,30.0,30.0,40.0,0.0,0.0,0.0,70.0
+Panna,Madhya Pradesh,23,30.0,40.0,30.0,0.0,0.0,0.0,70.0
+Sagar,Madhya Pradesh,23,30.0,50.0,20.0,0.0,0.0,0.0,70.0
+Tikamgarh,Madhya Pradesh,23,30.0,0.0,50.0,20.0,0.0,0.0,70.0

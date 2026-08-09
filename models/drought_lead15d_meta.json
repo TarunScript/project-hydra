@@ -1,0 +1,72 @@
+{
+  "model_type": "lead_15d_drought_prediction",
+  "lead_days": 15,
+  "training_date": "2026-08-09T17:49:04.310759",
+  "features": [
+    "bare_ground_frac",
+    "cropland_frac",
+    "dry_spell_days",
+    "et_current_kg_m2",
+    "lst_anomaly_c",
+    "lst_current_c",
+    "ndvi_anomaly",
+    "ndvi_current",
+    "rain_30d_deficit_mm",
+    "rain_30d_mm",
+    "rain_60d_deficit_mm",
+    "rain_60d_mm",
+    "rain_7d_deficit_mm",
+    "rain_7d_mm",
+    "rain_90d_deficit_mm",
+    "rain_90d_mm",
+    "sm_rootzone",
+    "sm_surface",
+    "urban_built_frac"
+  ],
+  "n_features": 19,
+  "temporal_split": {
+    "train_dates": [
+      "2023-08-01",
+      "2023-11-01",
+      "2024-05-01",
+      "2024-08-01"
+    ],
+    "test_dates": [
+      "2024-11-01",
+      "2025-06-01"
+    ],
+    "train_rows": 2613,
+    "test_rows": 2395,
+    "boundary": "train <= 2024-08-01 | test >= 2024-11-01"
+  },
+  "metrics_temporal_test": {
+    "rmse": 0.2793,
+    "mae": 0.2615,
+    "r2": -3.2389
+  },
+  "feature_importances_gain": {
+    "sm_surface": 0.196,
+    "sm_rootzone": 0.1742,
+    "rain_30d_mm": 0.095,
+    "rain_90d_deficit_mm": 0.0881,
+    "rain_90d_mm": 0.0578,
+    "rain_30d_deficit_mm": 0.0518,
+    "rain_7d_mm": 0.0508,
+    "cropland_frac": 0.0425,
+    "dry_spell_days": 0.0365,
+    "rain_7d_deficit_mm": 0.0356,
+    "rain_60d_deficit_mm": 0.0318,
+    "rain_60d_mm": 0.0278,
+    "lst_current_c": 0.0275,
+    "et_current_kg_m2": 0.0221,
+    "urban_built_frac": 0.0151,
+    "lst_anomaly_c": 0.0148,
+    "ndvi_current": 0.0128,
+    "bare_ground_frac": 0.0099,
+    "ndvi_anomaly": 0.0098
+  },
+  "regions_in_training": [
+    "marathwada"
+  ],
+  "honest_assessment": "R2=-3.239 on a strict temporal test set. This is a 15-day lead prediction, which is genuinely harder than same-day estimation. Even R2=0.5 would be a legitimately strong result for a drought early-warning system."
+}
