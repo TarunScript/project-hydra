@@ -1,72 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 
-// Mock GeoJSON data matching design system's risk levels
-const INITIAL_FEATURES = [
-  {
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[[92.5, 26.0], [92.8, 26.0], [92.8, 26.3], [92.5, 26.3], [92.5, 26.0]]]
-    },
-    properties: {
-      id: 'cell-1',
-      region: 'Assam - Brahamputra Basin #1',
-      model_type: 'flood',
-      risk_score: 0.88,
-      risk_level: 'severe',
-      days_to_event: 2,
-      alert_message: 'Severe flood risk predicted in 48 hours due to high upstream discharge. Evacuate low-lying areas.',
-      factors: {
-        rainfall_7d: '185 mm',
-        soil_moisture: '82%',
-        discharge: '4,200 m³/s'
-      }
-    }
-  },
-  {
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[[92.8, 26.0], [93.1, 26.0], [93.1, 26.3], [92.8, 26.3], [92.8, 26.0]]]
-    },
-    properties: {
-      id: 'cell-2',
-      region: 'Assam - Brahamputra Basin #2',
-      model_type: 'flood',
-      risk_score: 0.64,
-      risk_level: 'high',
-      days_to_event: 5,
-      alert_message: 'High flood advisory. Prepare water storage and move assets to higher ground.',
-      factors: {
-        rainfall_7d: '110 mm',
-        soil_moisture: '68%',
-        discharge: '2,900 m³/s'
-      }
-    }
-  },
-  {
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[[76.3, 19.0], [76.7, 19.0], [76.7, 19.3], [76.3, 19.3], [76.3, 19.0]]]
-    },
-    properties: {
-      id: 'cell-3',
-      region: 'Marathwada - Latur Drought Zone',
-      model_type: 'drought',
-      risk_score: 0.78,
-      risk_level: 'high',
-      days_to_event: 12,
-      alert_message: 'Severe water deficit & crop stress forecasted in next 12 days. Trigger irrigation allocation.',
-      factors: {
-        rainfall_deficit: '-58%',
-        soil_moisture: '21%',
-        temp_anomaly: '+3.2°C'
-      }
-    }
-  }
-];
+// API Backend URL — connects to the Flask server serving real XGBoost predictions
+const API_BASE = 'http://localhost:5001/api';
+
+// Features will be loaded from the API
+const INITIAL_FEATURES = [];
+
 
 const DEMO_REGIONS = {
   assam: {
@@ -177,17 +117,91 @@ export default function App() {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const [features, setFeatures] = useState(INITIAL_FEATURES);
-  const [selectedCell, setSelectedCell] = useState(INITIAL_FEATURES[0].properties);
+  const [selectedCell, setSelectedCell] = useState(null);
   const [timelineDay, setTimelineDay] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [detailOpen, setDetailOpen] = useState(true);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState('dark');
   const [selectedRegion, setSelectedRegion] = useState('assam');
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('districts'); // start with districts; switch to zones on demand
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Fetch real risk data from the Flask API
+  const fetchRiskData = async (region = 'assam', month = null, mode = viewMode) => {
+    try {
+      setIsLoading(true);
+      const monthParam = month !== null ? `month=${month}` : 'month=7';
+
+      let url;
+      if (mode === 'zones') {
+        // Get current map bbox for zone filtering
+        let bboxParams = '';
+        if (map.current) {
+          const bounds = map.current.getBounds();
+          bboxParams = `&minlon=${bounds.getWest().toFixed(4)}&maxlon=${bounds.getEast().toFixed(4)}&minlat=${bounds.getSouth().toFixed(4)}&maxlat=${bounds.getNorth().toFixed(4)}`;
+        }
+        url = `${API_BASE}/risk-grid/${region}/cells?${monthParam}&min_risk=0.0&max_cells=3000${bboxParams}`;
+      } else {
+        // District-level polygons
+        url = `${API_BASE}/risk-grid/${region}?${monthParam}`;
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.features && data.features.length > 0) {
+        // Compute relative_score (0-1) for colour ramp — avoids all-red when range is narrow
+        const rawScores = data.features.map(f => f.properties.risk_score || 0);
+        const minS = Math.min(...rawScores);
+        const maxS = Math.max(...rawScores);
+        const range = maxS - minS || 0.001;
+        const normalised = data.features.map(f => ({
+          ...f,
+          properties: {
+            ...f.properties,
+            relative_score: parseFloat(((f.properties.risk_score - minS) / range).toFixed(3)),
+          }
+        }));
+        setFeatures(normalised);
+        setSelectedCell(normalised[0].properties);
+        setDetailOpen(true);
+        console.log(`✓ Loaded ${normalised.length} ${mode} | score range [${minS.toFixed(3)}, ${maxS.toFixed(3)}]`);
+      }
+    } catch (err) {
+      console.error('Failed to fetch risk data from API:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load district view on mount and region change
+  useEffect(() => {
+    fetchRiskData(selectedRegion, null, viewMode);
+  }, [selectedRegion, viewMode]);
+
+  // Re-fetch when timeline changes
+  useEffect(() => {
+    const baseMonth = 7;
+    const monthOffset = Math.floor(timelineDay / 30);
+    const targetMonth = Math.max(5, Math.min(10, baseMonth + monthOffset));
+    fetchRiskData(selectedRegion, targetMonth, viewMode);
+  }, [timelineDay]);
+
+  // Compute dynamic color stops from loaded feature scores for relative coloring
+  const getColorStops = (feats) => {
+    if (!feats || feats.length === 0) return { low: 0.0, mid: 0.5, high: 0.9 };
+    const scores = feats.map(f => f.properties.risk_score || 0).sort((a, b) => a - b);
+    return {
+      low: scores[Math.floor(scores.length * 0.1)],
+      mid: scores[Math.floor(scores.length * 0.5)],
+      high: scores[Math.floor(scores.length * 0.9)],
+    };
+  };
 
   const addRiskLayers = () => {
     if (!map.current) return;
@@ -213,15 +227,16 @@ export default function App() {
         source: 'risk-grid',
         paint: {
           'fill-color': [
-            'match',
-            ['get', 'risk_level'],
-            'severe', '#ef4444',
-            'high', '#f97316',
-            'moderate', '#eab308',
-            '#22c55e'
+            'interpolate', ['linear'],
+            ['coalesce', ['to-number', ['get', 'relative_score'], 0], 0],
+            0.0, '#22c55e',
+            0.3, '#84cc16',
+            0.55, '#eab308',
+            0.75, '#f97316',
+            1.0, '#ef4444'
           ],
-          'fill-opacity': 0.65,
-          'fill-outline-color': '#ffffff'
+          'fill-opacity': 0.72,
+          'fill-outline-color': 'rgba(255,255,255,0.2)'
         }
       });
 
@@ -270,6 +285,8 @@ export default function App() {
         type: 'FeatureCollection',
         features: features
       });
+
+      // color is driven by relative_score (0-1), already embedded in feature properties
     }
   }, [features]);
 
@@ -313,54 +330,47 @@ export default function App() {
     }
   };
 
-  const handleSelectPlace = (place) => {
+  const handleSelectPlace = async (place) => {
     const lon = parseFloat(place.lon);
     const lat = parseFloat(place.lat);
     const placeName = place.display_name.split(',')[0];
 
-    if (map.current) {
-      map.current.flyTo({
-        center: [lon, lat],
-        zoom: 10,
-        duration: 2000
-      });
-    }
-
     setSearchQuery(placeName);
     setSearchResults([]);
 
-    // Dynamically create an interactive risk polygon for searched city
-    const newFeature = {
-      type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [[
-          [lon - 0.12, lat - 0.12],
-          [lon + 0.12, lat - 0.12],
-          [lon + 0.12, lat + 0.12],
-          [lon - 0.12, lat + 0.12],
-          [lon - 0.12, lat - 0.12]
-        ]]
-      },
-      properties: {
-        id: `search-${Date.now()}`,
-        region: `${placeName} Region Risk Cell`,
-        model_type: 'flood',
-        risk_score: 0.74,
-        risk_level: 'high',
-        days_to_event: 4,
-        alert_message: `Moderate-High hydrological risk detected for ${placeName}. Live sensors connected.`,
-        factors: {
-          rainfall_7d: '135 mm',
-          soil_moisture: '74%',
-          discharge: '3,100 m³/s'
-        }
-      }
-    };
+    if (map.current) {
+      map.current.flyTo({ center: [lon, lat], zoom: 10, duration: 1500 });
+    }
 
-    setFeatures((prev) => [newFeature, ...prev]);
-    setSelectedCell(newFeature.properties);
-    setDetailOpen(true);
+    // Fetch real model zones within ~0.6 degrees around the searched place
+    const pad = 0.6;
+    try {
+      setIsLoading(true);
+      const url = `${API_BASE}/risk-grid/assam/cells?month=7&min_risk=0.0&max_cells=3000` +
+        `&minlon=${(lon - pad).toFixed(4)}&maxlon=${(lon + pad).toFixed(4)}` +
+        `&minlat=${(lat - pad).toFixed(4)}&maxlat=${(lat + pad).toFixed(4)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.features && data.features.length > 0) {
+        setFeatures(data.features);
+        setSelectedCell(data.features[0].properties);
+        setDetailOpen(true);
+        setViewMode('zones');
+      } else {
+        setSelectedCell({
+          id: `search-${Date.now()}`, region: `${placeName} Region`,
+          model_type: 'flood', risk_score: null, risk_level: 'moderate',
+          days_to_event: null,
+          alert_message: `No flood model data for ${placeName}. Model covers Assam (2015-2023).`,
+          factors: {},
+        });
+        setDetailOpen(true);
+      }
+    } catch (err) {
+      console.error('Zone fetch failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -378,16 +388,21 @@ export default function App() {
         <div className="header__stats">
           <div className="stat-pill stat-pill--danger">
             <span>Severe Risks:</span>
-            <span className="stat-pill__value">1 Grid</span>
+            <span className="stat-pill__value">{features.filter(f => f.properties.risk_level === 'severe').length} {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
           </div>
           <div className="stat-pill stat-pill--warning">
             <span>High Risk:</span>
-            <span className="stat-pill__value">2 Grids</span>
+            <span className="stat-pill__value">{features.filter(f => f.properties.risk_level === 'high').length} {viewMode === 'zones' ? 'Zones' : 'Districts'}</span>
           </div>
           <div className="stat-pill">
             <span>Active Region:</span>
             <span className="stat-pill__value">{DEMO_REGIONS[selectedRegion]?.name.split(' ')[0]}</span>
           </div>
+          {isLoading && (
+            <div className="stat-pill">
+              <span>⏳ Loading model data...</span>
+            </div>
+          )}
         </div>
 
         <div className="header__controls">
@@ -437,6 +452,28 @@ export default function App() {
               <option key={key} value={key}>{item.name}</option>
             ))}
           </select>
+
+          {/* Zone vs District toggle */}
+          <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.07)', borderRadius: '8px', padding: '3px' }}>
+            <button
+              onClick={() => setViewMode('zones')}
+              style={{
+                padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                background: viewMode === 'zones' ? 'var(--accent)' : 'transparent',
+                color: viewMode === 'zones' ? '#fff' : 'var(--text-muted)',
+                transition: 'all 0.2s',
+              }}
+            >🗺️ 5km Zones</button>
+            <button
+              onClick={() => setViewMode('districts')}
+              style={{
+                padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                background: viewMode === 'districts' ? 'var(--accent)' : 'transparent',
+                color: viewMode === 'districts' ? '#fff' : 'var(--text-muted)',
+                transition: 'all 0.2s',
+              }}
+            >📍 Districts</button>
+          </div>
         </div>
       </header>
 
