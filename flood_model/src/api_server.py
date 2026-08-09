@@ -89,13 +89,21 @@ def calibrated_scores_batch(model_obj, X_df):
     margins = model_obj.get_booster().predict(dmat, output_margin=True)
     return 1.0 / (1.0 + np.exp(-margins / CALIBRATION_TEMP))
 
-def get_alert_message(district, risk_level, factors):
-    messages = {
-        "severe": f"SEVERE flood risk in {district}. Rainfall anomaly {factors.get('rain_anomaly', 'N/A')}σ above normal. Evacuate low-lying areas immediately.",
-        "high": f"HIGH flood advisory for {district}. Elevated soil moisture ({factors.get('sm_surface', 'N/A')}%) and above-normal rainfall. Prepare flood defenses.",
-        "moderate": f"MODERATE flood watch for {district}. Monitor water levels and prepare contingency plans.",
-        "low": f"Low flood risk in {district}. Normal conditions.",
-    }
+def get_alert_message(district, risk_level, factors, is_drought=False):
+    if is_drought:
+        messages = {
+            "severe": f"SEVERE drought risk in {district}. Soil moisture deficit critical. Activate municipal contingency plan.",
+            "high": f"HIGH drought advisory for {district}. Elevated temperature & baseline aquifer depletion. Reduce non-essential water usage.",
+            "moderate": f"MODERATE drought watch for {district}. Monitor reservoir levels and soil moisture indices.",
+            "low": f"Low drought risk in {district}. Normal water balance.",
+        }
+    else:
+        messages = {
+            "severe": f"SEVERE flood risk in {district}. Rainfall anomaly {factors.get('rain_anomaly', 'N/A')}σ above normal. Evacuate low-lying areas immediately.",
+            "high": f"HIGH flood advisory for {district}. Elevated soil moisture ({factors.get('sm_surface', 'N/A')}%) and above-normal rainfall. Prepare flood defenses.",
+            "moderate": f"MODERATE flood watch for {district}. Monitor water levels and prepare contingency plans.",
+            "low": f"Low flood risk in {district}. Normal conditions.",
+        }
     return messages.get(risk_level, "")
 
 def get_days_to_event(risk_level):
@@ -138,6 +146,9 @@ STATE_BOUNDARY_FILES = {
     "bihar":       ("bihar_districts.geojson",       "shapeName"),
     "west_bengal": ("west_bengal_districts.geojson", "shapeName"),
     "odisha":      ("odisha_districts.geojson",      "shapeName"),
+    "marathwada":  ("marathwada_districts.geojson",  "district_name"),
+    "bundelkhand": ("bundelkhand_districts.geojson", "district_name"),
+    "rayalaseema": ("rayalaseema_districts.geojson",  "district_name"),
 }
 ASSAM_NAME_FIXES = {
     "SIBSAGAR": "SIVASAGAR", "NORTH CACHAR HILLS": "DIMA HASAO",
@@ -474,12 +485,14 @@ def risk_grid_flood(region=None):
             # Predict risk using calibrated raw margins (stable gradient)
             base_score = calibrated_score_single(model, X)
 
-            # Apply small weather-responsive adjustment based on live rain
+            # Apply gentle weather-responsive adjustment based on live rain
+            # Multiplier 0.06 and cap ±0.10 ensure live data nudges the score
+            # without overwhelming the model's own prediction
             training_rain_7d = float(X["rain_7d_mm"].values[0]) if "rain_7d_mm" in X.columns else 70.0
             if live_w and training_rain_7d > 0:
                 live_rain_7d = live_w.get("rain_7d_mm", training_rain_7d)
                 rain_ratio = live_rain_7d / max(training_rain_7d, 1.0)
-                adjustment = max(-0.20, min(0.30, (rain_ratio - 1.0) * 0.15))
+                adjustment = max(-0.10, min(0.10, (rain_ratio - 1.0) * 0.06))
             else:
                 adjustment = 0.0
 
@@ -509,10 +522,12 @@ def risk_grid_flood(region=None):
                 "flow_accumulation": f"{flow_acc:.0f}",
             }
 
+            is_drought = state_key in ["marathwada", "bundelkhand", "rayalaseema"]
+
             alert_message = get_alert_message(district, risk_level, {
                 "rain_anomaly": f"{rain_anom:+.1f}",
                 "sm_surface": f"{sm_surf*100:.0f}",
-            })
+            }, is_drought=is_drought)
 
             geojson_geom = json.loads(gpd.GeoSeries([geometry]).to_json())["features"][0]["geometry"]
 
@@ -524,7 +539,7 @@ def risk_grid_flood(region=None):
                     "region": f"{state_label} - {district.title()}",
                     "state": state_key,
                     "district_name": district,
-                    "model_type": "flood",
+                    "model_type": "drought" if is_drought else "flood",
                     "risk_score": round(risk_score, 3),
                     "risk_level": risk_level,
                     "days_to_event": get_days_to_event(risk_level),

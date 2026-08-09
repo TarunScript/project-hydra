@@ -58,18 +58,18 @@ const DEMO_REGIONS = {
     zoom: 7.5
   },
   marathwada: {
-    name: 'Marathwada (Drought Case)',
+    name: 'Marathwada (Drought Model)',
     center: [76.5, 19.15],
     zoom: 8.5
   },
-  rayalaseema: {
-    name: 'Rayalaseema (Drought Zone)',
-    center: [78.2, 14.5],
-    zoom: 8.5
+  bundelkhand: {
+    name: 'Bundelkhand (Drought Model)',
+    center: [79.5, 25.2],
+    zoom: 8.0
   },
-  kerala: {
-    name: 'Kerala (Monsoon Inundation)',
-    center: [76.3, 9.9],
+  rayalaseema: {
+    name: 'Rayalaseema (Drought Model)',
+    center: [78.2, 14.5],
     zoom: 8.5
   }
 };
@@ -309,13 +309,26 @@ function Dashboard() {
         source: 'risk-grid',
         paint: {
           'fill-color': [
-            'interpolate', ['linear'],
-            ['coalesce', ['to-number', ['get', 'risk_score'], 0], 0],
-            0.0, '#22c55e',
-            0.15, '#22c55e',
-            0.30, '#eab308',
-            0.50, '#f97316',
-            0.70, '#ef4444'
+            'case',
+            ['==', ['get', 'model_type'], 'drought'],
+            [
+              'interpolate', ['linear'],
+              ['coalesce', ['to-number', ['get', 'risk_score'], 0], 0],
+              0.0, '#06b6d4',
+              0.15, '#06b6d4',
+              0.30, '#6366f1',
+              0.50, '#d946ef',
+              0.70, '#7e22ce'
+            ],
+            [
+              'interpolate', ['linear'],
+              ['coalesce', ['to-number', ['get', 'risk_score'], 0], 0],
+              0.0, '#22c55e',
+              0.15, '#22c55e',
+              0.30, '#eab308',
+              0.50, '#f97316',
+              0.70, '#ef4444'
+            ]
           ],
           'fill-opacity': 0.65,
           'fill-outline-color': '#ffffff'
@@ -621,23 +634,49 @@ function Dashboard() {
 
           {/* Map Legend */}
           <div className="map-legend">
-            <div className="map-legend__title">Risk Index Scale</div>
-            <div className="map-legend__items">
-              <div className="map-legend__item">
-                <div className="map-legend__color" style={{ background: 'var(--risk-severe)' }}></div>
-                <span>Severe (≥ 0.60)</span>
+            <div className="map-legend__section">
+              <div className="map-legend__title" style={{ color: currentStyle === 'light' ? '#ffffff' : '#38bdf8', marginBottom: '4px', fontWeight: 700 }}>Flood Risk Index</div>
+              <div className="map-legend__items">
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#ef4444' }}></div>
+                  <span>Severe (≥ 0.60)</span>
+                </div>
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#f97316' }}></div>
+                  <span>High (0.35 – 0.60)</span>
+                </div>
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#eab308' }}></div>
+                  <span>Moderate (0.15 – 0.35)</span>
+                </div>
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#22c55e' }}></div>
+                  <span>Low (&lt; 0.15)</span>
+                </div>
               </div>
-              <div className="map-legend__item">
-                <div className="map-legend__color" style={{ background: 'var(--risk-high)' }}></div>
-                <span>High (0.35 – 0.60)</span>
-              </div>
-              <div className="map-legend__item">
-                <div className="map-legend__color" style={{ background: 'var(--risk-moderate)' }}></div>
-                <span>Moderate (0.15 – 0.35)</span>
-              </div>
-              <div className="map-legend__item">
-                <div className="map-legend__color" style={{ background: 'var(--risk-low)' }}></div>
-                <span>Low (&lt; 0.15)</span>
+            </div>
+
+            <div className="map-legend__divider" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.12)', margin: '8px 0' }}></div>
+
+            <div className="map-legend__section">
+              <div className="map-legend__title" style={{ color: currentStyle === 'light' ? '#ffffff' : '#e0e7ff', marginBottom: '4px', fontWeight: 700 }}>Drought Risk Index</div>
+              <div className="map-legend__items">
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#7e22ce' }}></div>
+                  <span>Severe (≥ 0.60)</span>
+                </div>
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#d946ef' }}></div>
+                  <span>High (0.35 – 0.60)</span>
+                </div>
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#6366f1' }}></div>
+                  <span>Moderate (0.15 – 0.35)</span>
+                </div>
+                <div className="map-legend__item">
+                  <div className="map-legend__color" style={{ background: '#06b6d4' }}></div>
+                  <span>Low (&lt; 0.15)</span>
+                </div>
               </div>
             </div>
           </div>

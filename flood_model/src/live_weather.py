@@ -174,12 +174,14 @@ def get_live_weather_features(
         rain_3d_mm         = round(sum(all_rains[max(0, target_idx - 2) : target_idx + 1]), 2)
         rain_7d_mm         = round(sum(all_rains[max(0, target_idx - 6) : target_idx + 1]), 2)
         rain_daily_mean_mm = round(rain_7d_mm / 7.0, 2)
-        rain_monthly_mm    = round(rain_7d_mm * 4.3, 2)
+        # Use actual accumulated rain from available API window (up to 30 days), not 7d × 4.3
+        rain_monthly_mm    = round(sum(all_rains[max(0, target_idx - 29) : target_idx + 1]), 2)
 
         # Rainfall anomaly (z-score vs state climatology)
+        # Clamp to ±2.0σ — the XGBoost model was trained on CHIRPS data where anomalies rarely exceed ±2σ
         clim_mean, clim_std = STATE_CLIMATOLOGY.get(state_key, {}).get(month, (300.0, 140.0))
         raw_anomaly = (rain_monthly_mm - clim_mean) / max(clim_std, 1.0)
-        rain_anomaly = round(max(-2.5, min(3.5, raw_anomaly)), 3)
+        rain_anomaly = round(max(-2.0, min(2.0, raw_anomaly)), 3)
 
         # Hourly soil moisture for target day
         hourly = data["hourly"]

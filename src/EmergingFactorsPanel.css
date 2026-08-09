@@ -6,7 +6,7 @@
 .efp-toggle-btn {
   position: absolute;
   bottom: 24px;
-  left: 16px;
+  left: 195px;
   z-index: 1500;
   padding: 8px 14px;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
