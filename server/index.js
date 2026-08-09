@@ -42,8 +42,46 @@ app.get('/api/emerging-factors', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+// ── 404 handler ──
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Endpoint not found', status: 404 });
+});
+
+// ── Global error handler ──
+app.use((err, _req, res, _next) => {
+  console.error('[server] Unhandled error:', err.message);
+  res.status(500).json({ error: 'Internal server error', detail: err.message });
+});
+
+// ── Start with port-in-use detection ──
+const server = app.listen(PORT, () => {
   console.log(`\n  🌊 Project Hydra API server running`);
   console.log(`  ➜  Local:   http://localhost:${PORT}`);
   console.log(`  ➜  Mode:    ${process.env.PERPLEXITY_API_KEY ? 'LIVE (Perplexity Sonar)' : 'MOCK (no API key set)'}\n`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n  ⚠ Port ${PORT} is already in use!`);
+    console.error(`  → Kill it: lsof -ti:${PORT} | xargs kill -9`);
+    console.error(`  → Or set a different port: PORT=3002 node index.js\n`);
+  } else {
+    console.error(`\n  ✗ Server failed to start:`, err.message);
+  }
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n  👋 Server stopped gracefully.');
+  server.close();
+  process.exit(0);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[server] Uncaught exception:', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] Unhandled promise rejection:', reason);
 });

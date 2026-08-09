@@ -200,19 +200,69 @@ for state_key, gdf in all_state_gdfs.items():
         DISTRICT_TO_STATE[row["district_name"]] = state_key
 
 # Pre-warm live weather cache at startup (background, non-blocking)
-_live_weather_cache = {}
+# Keyed by (district, day_offset) — only 3 day positions: 0, +7, +15
+# Sequential phases: day 0 → day +7 → day +15 (each phase uses parallel threads)
+_live_weather_cache = {}  # key: (district_name, day_offset) → weather dict
 if LIVE_WEATHER_ENABLED:
-    print("  Fetching live weather for all districts...")
+    print("  Fetching live weather (3 phases: day 0 → +7 → +15, Assam-first)...")
     import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fetch_one(dist, coords, month, skey, day_offset):
+        """Fetch weather for a single district + day_offset (runs in thread pool)."""
+        import time
+        time.sleep(0.15)  # throttle to avoid Open-Meteo 429 rate limit
+        w = get_live_weather_features(coords["lat"], coords["lon"], month=month, state_key=skey, day_offset=day_offset)
+        return (dist, day_offset, w)
+
     def _warm_cache():
         global _live_weather_cache
         month = max(5, min(10, datetime.now().month))
+
+        # Prioritize Assam first, then alphabetical (Bihar, Odisha, West Bengal)
+        STATE_PRIORITY = ["assam", "bihar", "odisha", "west_bengal"]
+        ordered_districts = []
+        for priority_state in STATE_PRIORITY:
+            for dist, coords in district_centroids.items():
+                if DISTRICT_TO_STATE.get(dist, "assam") == priority_state:
+                    ordered_districts.append((dist, coords))
+        seen = {d for d, _ in ordered_districts}
         for dist, coords in district_centroids.items():
-            skey = DISTRICT_TO_STATE.get(dist, "assam")
-            w = get_live_weather_features(coords["lat"], coords["lon"], month=month, state_key=skey)
-            if w:
-                _live_weather_cache[dist] = w
-        print(f"  ✓ Live weather cached: {len(_live_weather_cache)}/{len(district_centroids)} districts")
+            if dist not in seen:
+                ordered_districts.append((dist, coords))
+
+        # Only 3 day offsets, done ONE PHASE AT A TIME (sequential phases, parallel within)
+        DAY_PHASES = [0, 7, 15]
+        total = len(ordered_districts) * len(DAY_PHASES)
+        print(f"    → {len(ordered_districts)} districts × {len(DAY_PHASES)} days = {total} weather fetches")
+        print(f"    → Throttled: 5 threads + 0.15s delay to avoid Open-Meteo rate limit")
+
+        cached_count = 0
+        for phase_idx, day_off in enumerate(DAY_PHASES):
+            phase_count = 0
+            # 5 threads max + small delay to stay under Open-Meteo rate limit
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                futures = []
+                for dist, coords in ordered_districts:
+                    skey = DISTRICT_TO_STATE.get(dist, "assam")
+                    futures.append(pool.submit(_fetch_one, dist, coords, month, skey, day_off))
+
+                for future in as_completed(futures):
+                    try:
+                        dist, d_off, w = future.result()
+                        if w:
+                            _live_weather_cache[(dist, d_off)] = w
+                            cached_count += 1
+                            phase_count += 1
+                    except Exception:
+                        pass
+            print(f"    ✓ Phase day={day_off:+d} done: {phase_count}/{len(ordered_districts)} districts cached")
+            # Cooldown between phases to let rate limit reset
+            if phase_idx < len(DAY_PHASES) - 1:
+                import time
+                time.sleep(5)
+
+        print(f"  ✓ Live weather cached: {cached_count}/{total} (district × day) entries")
     threading.Thread(target=_warm_cache, daemon=True).start()
 
 # Available districts
@@ -305,6 +355,21 @@ print(f"  ✓ Cell-month feature table: {cell_month_features.shape}")
 app = Flask(__name__)
 CORS(app)  # Allow frontend on different port
 
+# ── Global Error Handlers ──
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Endpoint not found", "status": 404}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    print(f"  ✗ Internal server error: {e}")
+    return jsonify({"error": "Internal server error", "detail": str(e), "status": 500}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print(f"  ✗ Unhandled exception: {type(e).__name__}: {e}")
+    return jsonify({"error": "Unexpected error", "detail": str(e), "status": 500}), 500
+
 
 @app.route("/", methods=["GET"])
 def index():
@@ -323,12 +388,35 @@ def index():
 
 @app.route("/api/health", methods=["GET"])
 def health():
+    try:
+        return jsonify({
+            "status": "ok",
+            "model": "XGBoost Flood Risk v1",
+            "districts": len(available_districts),
+            "features": len(FEATURE_COLS),
+            "training_rows": len(training_table),
+            "weather_cache_size": len(_live_weather_cache),
+            "weather_status": get_weather_system_status(),
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "detail": str(e)}), 500
+
+
+@app.route("/api/weather-status", methods=["GET"])
+def weather_status():
+    """Return the current weather system status and cache info."""
+    cached_days = set()
+    cached_districts = set()
+    for (dist, day_off) in _live_weather_cache.keys():
+        cached_days.add(day_off)
+        cached_districts.add(dist)
     return jsonify({
-        "status": "ok",
-        "model": "XGBoost Flood Risk v1",
-        "districts": len(available_districts),
-        "features": len(FEATURE_COLS),
-        "training_rows": len(training_table),
+        "weather_system": get_weather_system_status(),
+        "cache": {
+            "total_entries": len(_live_weather_cache),
+            "cached_districts": len(cached_districts),
+            "cached_day_offsets": sorted(cached_days),
+        }
     })
 
 
@@ -377,13 +465,8 @@ def risk_grid_flood(region=None):
             X = feat_row[FEATURE_COLS[:-1]].copy()
             X["month"] = month
 
-            # ── LIVE WEATHER (for display only, NOT injected into model) ──
-            live_w = None
-            if LIVE_WEATHER_ENABLED and district in district_centroids:
-                coords = district_centroids[district]
-                live_w = get_live_weather_features(
-                    coords["lat"], coords["lon"], month=month, day_offset=day, state_key=state_key
-                )
+            # ── LIVE WEATHER (from background cache, keyed by district + day) ──
+            live_w = _live_weather_cache.get((district, day), None)
             # ─────────────────────────────────────────────────────────────
 
             X = X[FEATURE_COLS].fillna(X.median())
@@ -547,16 +630,13 @@ def risk_grid_cells(region=None):
     if month_df.empty:
         return jsonify({"type": "FeatureCollection", "features": []})
 
-    # ── LIVE WEATHER (for display & adjustment, NOT injected into model) ──
+    # ── LIVE WEATHER (from background cache, keyed by district + day) ──
     _live_weather_per_district = {}
     if LIVE_WEATHER_ENABLED:
         for dist_name in month_df["district_name"].unique():
-            if dist_name in district_centroids:
-                coords = district_centroids[dist_name]
-                state_key = DISTRICT_TO_STATE.get(dist_name, "assam")
-                lw = get_live_weather_features(coords["lat"], coords["lon"], month=month, day_offset=day, state_key=state_key)
-                if lw:
-                    _live_weather_per_district[dist_name] = lw
+            cached = _live_weather_cache.get((dist_name, day), None)
+            if cached:
+                _live_weather_per_district[dist_name] = cached
 
     # Build feature matrix and predict in batch using TRAINING features
     X = month_df[_non_month_feats].copy()
@@ -659,21 +739,44 @@ def risk_grid_cells(region=None):
 @app.route("/api/feature-importance", methods=["GET"])
 def feature_importance():
     """Return feature importance directly from the deployed XGBoost model."""
-    importance = model.feature_importances_
-    feat_imp = [
-        {"feature": name, "importance": round(float(imp), 4)}
-        for name, imp in sorted(zip(FEATURE_COLS, importance), key=lambda x: -x[1])
-    ]
-    return jsonify({
-        "feature_importance": feat_imp,
-        "total_features": len(FEATURE_COLS),
-        "model": "XGBoost Multistate v1"
-    })
+    try:
+        importance = model.feature_importances_
+        feat_imp = [
+            {"feature": name, "importance": round(float(imp), 4)}
+            for name, imp in sorted(zip(FEATURE_COLS, importance), key=lambda x: -x[1])
+        ]
+        return jsonify({
+            "feature_importance": feat_imp,
+            "total_features": len(FEATURE_COLS),
+            "model": "XGBoost Multistate v1"
+        })
+    except Exception as e:
+        return jsonify({"error": "Failed to get feature importance", "detail": str(e)}), 500
 
 
 if __name__ == "__main__":
+    import socket
+
+    port = 5001
     print("\n" + "=" * 50)
     print("  🌊 Project Hydra — Flood Risk API")
-    print("  http://localhost:5001/api/risk-grid/assam")
+    print(f"  http://localhost:{port}/api/risk-grid/assam")
     print("=" * 50 + "\n")
-    app.run(host="0.0.0.0", port=5001, debug=True)
+
+    # Check if port is already in use
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex(('127.0.0.1', port))
+    sock.close()
+    if result == 0:
+        print(f"  ⚠ Port {port} is already in use!")
+        print(f"  → Kill the existing process: lsof -ti:{port} | xargs kill -9")
+        print(f"  → Or use a different port: python api_server.py  (and edit the port below)")
+        sys.exit(1)
+
+    try:
+        app.run(host="0.0.0.0", port=port, debug=False)
+    except KeyboardInterrupt:
+        print("\n  👋 Server stopped gracefully.")
+    except Exception as e:
+        print(f"\n  ✗ Server failed to start: {e}")
+        sys.exit(1)
