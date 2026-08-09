@@ -10,6 +10,9 @@ import express from 'express';
 import cors from 'cors';
 import { getEmergingFactors } from './emerging-factors.js';
 
+// Auto-load .env file if available
+try { process.loadEnvFile(); } catch (_) {}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
