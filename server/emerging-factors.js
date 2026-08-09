@@ -116,8 +116,19 @@ function computeEmergingRiskImpact(findings, locationName, lat, lon) {
   const locLower = (locationName || '').toLowerCase();
   
   const isDroughtProne = locLower.includes('marathwada') || locLower.includes('rayalaseema') ||
-                         locLower.includes('latur') || locLower.includes('jalna') ||
-                         locLower.includes('rajasthan') || locLower.includes('anantapur') ||
+                         locLower.includes('bundelkhand') || locLower.includes('latur') ||
+                         locLower.includes('jalna') || locLower.includes('beed') ||
+                         locLower.includes('osmanabad') || locLower.includes('nanded') ||
+                         locLower.includes('parbhani') || locLower.includes('hingoli') ||
+                         locLower.includes('aurangabad') || locLower.includes('jhansi') ||
+                         locLower.includes('lalitpur') || locLower.includes('hamirpur') ||
+                         locLower.includes('mahoba') || locLower.includes('banda') ||
+                         locLower.includes('chitrakoot') || locLower.includes('tikamgarh') ||
+                         locLower.includes('chhatarpur') || locLower.includes('panna') ||
+                         locLower.includes('damoh') || locLower.includes('sagar') ||
+                         locLower.includes('datia') || locLower.includes('anantapur') ||
+                         locLower.includes('kadapa') || locLower.includes('kurnool') ||
+                         locLower.includes('chittoor') || locLower.includes('rajasthan') ||
                          locLower.includes('vidarbha') || locLower.includes('drought');
                          
   const primaryDomain = isDroughtProne ? 'drought' : 'flood';
@@ -154,8 +165,30 @@ function computeEmergingRiskImpact(findings, locationName, lat, lon) {
 
 // ── Dynamic District Prompt Template ──
 function buildPrompt(location_name, lat, lon) {
+  const locLower = (location_name || '').toLowerCase();
+  const isDroughtProne = locLower.includes('marathwada') || locLower.includes('rayalaseema') ||
+                         locLower.includes('bundelkhand') || locLower.includes('latur') ||
+                         locLower.includes('jalna') || locLower.includes('beed') ||
+                         locLower.includes('osmanabad') || locLower.includes('nanded') ||
+                         locLower.includes('parbhani') || locLower.includes('hingoli') ||
+                         locLower.includes('aurangabad') || locLower.includes('jhansi') ||
+                         locLower.includes('lalitpur') || locLower.includes('hamirpur') ||
+                         locLower.includes('mahoba') || locLower.includes('banda') ||
+                         locLower.includes('chitrakoot') || locLower.includes('tikamgarh') ||
+                         locLower.includes('chhatarpur') || locLower.includes('panna') ||
+                         locLower.includes('damoh') || locLower.includes('sagar') ||
+                         locLower.includes('datia') || locLower.includes('anantapur') ||
+                         locLower.includes('kadapa') || locLower.includes('kurnool') ||
+                         locLower.includes('chittoor') || locLower.includes('drought');
+
+  const domainType = isDroughtProne ? 'DROUGHT VULNERABILITY AND WATER SCARCITY' : 'FLOOD RISK AND HYDROLOGICAL SURGE';
+  const relevanceInstruction = isDroughtProne
+    ? `How this specific event alters local drought vulnerability, aquifer drawdown, irrigation depletion, or water scarcity in ${location_name}`
+    : `How this specific event alters local flood surge velocity, channel discharge, or river overflow in ${location_name}`;
+
   return `You are a senior environmental risk and water resources analyst for India.
 Target District / Region: ${location_name} (Coordinates: ${lat}°N, ${lon}°E)
+Focus Analysis Domain: ${domainType}
 
 Perform targeted research synthesis for the specific district of ${location_name}. Generate 3 to 4 factual, highly specific industrial, hydrometeorological, or ecological developments near ${location_name} strictly within these 7 categories:
 1. New/expanding data centers or AI infrastructure
@@ -167,8 +200,8 @@ Perform targeted research synthesis for the specific district of ${location_name
 7. Large-scale land-use change (deforestation, urban expansion)
 
 Strict Requirements for ${location_name}:
-- Tailor EVERY finding specifically to ${location_name} and its surrounding river tributaries, dams, agricultural belts, or industrial corridors.
-- Name real local geographical features (e.g. specific river tributaries, barrages, CGWB district groundwater reports, or industrial parks).
+- Tailor EVERY finding specifically to ${location_name} and its surrounding river tributaries, reservoirs, aquifers, or industrial corridors.
+- Name real local geographical features (e.g. specific river tributaries, reservoirs, CGWB district groundwater reports, or industrial parks).
 - Do NOT mention cloud seeding, weather modification, or geoengineering.
 
 Return ONLY valid JSON matching this schema:
@@ -178,8 +211,8 @@ Return ONLY valid JSON matching this schema:
     {
       "category": "one of the 7 exact category strings",
       "summary": "Factual 1-2 sentence summary of the specific event in/near ${location_name}",
-      "relevance": "How this specific event alters local flood surge velocity, channel discharge, or drought water-table drawdown in ${location_name}",
-      "source_url": "https://pib.gov.in or https://reuters.com or https://downtoearth.org.in",
+      "relevance": "${relevanceInstruction}",
+      "source_url": "https://pib.gov.in or https://cgwb.gov.in or https://reuters.com or https://downtoearth.org.in",
       "source_date": "2024-08-15"
     }
   ],
@@ -190,7 +223,53 @@ Return ONLY valid JSON matching this schema:
 // ── DYNAMIC REGIONAL FALLBACK DATA ──
 function getMockResponse(lat, lon, location_name) {
   const locName = location_name || `District at ${lat}, ${lon}`;
+  const locLower = locName.toLowerCase();
   
+  const isDroughtProne = locLower.includes('marathwada') || locLower.includes('rayalaseema') ||
+                         locLower.includes('bundelkhand') || locLower.includes('latur') ||
+                         locLower.includes('jalna') || locLower.includes('beed') ||
+                         locLower.includes('osmanabad') || locLower.includes('nanded') ||
+                         locLower.includes('parbhani') || locLower.includes('hingoli') ||
+                         locLower.includes('aurangabad') || locLower.includes('jhansi') ||
+                         locLower.includes('lalitpur') || locLower.includes('hamirpur') ||
+                         locLower.includes('mahoba') || locLower.includes('banda') ||
+                         locLower.includes('chitrakoot') || locLower.includes('tikamgarh') ||
+                         locLower.includes('chhatarpur') || locLower.includes('panna') ||
+                         locLower.includes('damoh') || locLower.includes('sagar') ||
+                         locLower.includes('datia') || locLower.includes('anantapur') ||
+                         locLower.includes('kadapa') || locLower.includes('kurnool') ||
+                         locLower.includes('chittoor') || locLower.includes('drought');
+
+  if (isDroughtProne) {
+    return {
+      location: locName,
+      findings: [
+        {
+          category: 'Groundwater extraction trends or new industrial water permits',
+          summary: `Central Ground Water Board (CGWB) 2024 report registered over-exploited aquifer conditions and deep water table drawdown in ${locName}.`,
+          relevance: `Pre-monsoon aquifer drawdown in ${locName} lowers subsurface moisture reserves, heightening agricultural drought vulnerability during dry spells.`,
+          source_url: 'https://cgwb.gov.in/reports/district-drought-groundwater-2024.pdf',
+          source_date: '2024-08-01'
+        },
+        {
+          category: 'Major upstream dam/reservoir/irrigation changes',
+          summary: `Regional State Irrigation Department logged storage levels falling below seasonal rule curve baselines in feeder reservoirs supplying ${locName}.`,
+          relevance: `Reduced canal allocations in ${locName} increase reliance on groundwater, compounding soil moisture deficit and agricultural aridity risks.`,
+          source_url: 'https://pib.gov.in/PressReleasePage.aspx?PRID=1978000',
+          source_date: '2024-07-25'
+        },
+        {
+          category: 'New/expanding data centers or AI infrastructure',
+          summary: `Industrial development park expansion near ${locName} logged increased demand for municipal cooling and utility water allocation permits.`,
+          relevance: `Commercial cooling water draw in ${locName} competes with agricultural water supply, accelerating local drought stress indices.`,
+          source_url: 'https://reuters.com/business/environment/india-industrial-water-demand-2024',
+          source_date: '2024-09-12'
+        }
+      ],
+      no_findings: false
+    };
+  }
+
   return {
     location: locName,
     findings: [

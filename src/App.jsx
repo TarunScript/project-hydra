@@ -569,13 +569,17 @@ function Dashboard() {
             onClick={() => setEfpOpen(!efpOpen)}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '6px 14px', background: 'linear-gradient(135deg, rgba(56,189,248,0.18), rgba(99,102,241,0.18))',
-              border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '6px',
-              color: '#f8fafc', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(56,189,248,0.15)', transition: 'all 200ms ease'
+              padding: '6px 16px', background: efpOpen
+                ? 'linear-gradient(135deg, rgba(56,189,248,0.3), rgba(99,102,241,0.3))'
+                : 'linear-gradient(135deg, rgba(56,189,248,0.15), rgba(99,102,241,0.15))',
+              border: '1px solid rgba(56, 189, 248, 0.45)', borderRadius: '999px',
+              color: '#f8fafc', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
+              boxShadow: '0 2px 12px rgba(56,189,248,0.2), inset 0 1px 0 rgba(255,255,255,0.12)',
+              backdropFilter: 'blur(16px)',
+              transition: 'all 200ms ease'
             }}
           >
-            <span>{efpOpen ? 'Close AI Research' : 'AI Emerging Factors'}</span>
+            <span>{efpOpen ? '✕ Close Research' : '🔬 AI Emerging Factors'}</span>
           </button>
         </div>
       </header>
@@ -587,16 +591,18 @@ function Dashboard() {
           <div style={{
             position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)',
             zIndex: 950,
-            background: currentStyle === 'light' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(234, 179, 8, 0.18)',
-            border: currentStyle === 'light' ? '1px solid rgba(56, 189, 248, 0.6)' : '1px solid rgba(234, 179, 8, 0.5)',
-            backdropFilter: 'blur(16px)', borderRadius: '6px', padding: '8px 20px',
-            fontSize: '0.78rem',
-            color: currentStyle === 'light' ? '#38bdf8' : '#fef08a',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', fontWeight: 600
+            background: currentStyle === 'light' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(15, 23, 42, 0.82)',
+            border: currentStyle === 'light' ? '1px solid rgba(56, 189, 248, 0.6)' : '1px solid rgba(234, 179, 8, 0.4)',
+            backdropFilter: 'blur(28px) saturate(1.4)', borderRadius: '999px', padding: '8px 22px',
+            fontSize: '0.75rem',
+            color: currentStyle === 'light' ? '#38bdf8' : '#fde68a',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.15)', fontWeight: 600,
+            whiteSpace: 'nowrap'
           }}>
+            <span style={{ fontSize: '0.85rem' }}>⚠️</span>
             <span>{weatherWarning}</span>
-            <button onClick={() => setWeatherWarning(null)} style={{ background: 'none', border: 'none', color: currentStyle === 'light' ? '#38bdf8' : '#fef08a', cursor: 'pointer', marginLeft: '6px', fontSize: '0.9rem' }}>✕</button>
+            <button onClick={() => setWeatherWarning(null)} style={{ background: 'none', border: 'none', color: currentStyle === 'light' ? '#38bdf8' : '#fde68a', cursor: 'pointer', marginLeft: '4px', fontSize: '0.9rem', lineHeight: 1 }}>✕</button>
           </div>
         )}
         {/* Loading Overlay */}
@@ -790,12 +796,13 @@ function Dashboard() {
                   <button
                     onClick={() => setEfpOpen(true)}
                     style={{
-                      width: '100%', padding: '10px 14px',
-                      background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
-                      border: 'none', borderRadius: '8px', color: '#ffffff',
+                      width: '100%', padding: '11px 14px',
+                      background: 'linear-gradient(135deg, rgba(56,189,248,0.28) 0%, rgba(99,102,241,0.28) 100%)',
+                      border: '1px solid rgba(56,189,248,0.5)', borderRadius: '999px', color: '#ffffff',
                       fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer',
-                      boxShadow: '0 4px 14px rgba(56,189,248,0.3)',
+                      boxShadow: '0 4px 18px rgba(56,189,248,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      backdropFilter: 'blur(12px)',
                       transition: 'transform 150ms ease, box-shadow 150ms ease'
                     }}
                   >
