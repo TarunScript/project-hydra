@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import EmergingFactorsPanel from './EmergingFactorsPanel.jsx';
+import './EmergingFactorsPanel.css';
 
 // Mock GeoJSON data matching design system's risk levels
 const INITIAL_FEATURES = [
@@ -183,6 +185,9 @@ export default function App() {
   const [detailOpen, setDetailOpen] = useState(true);
   const [currentStyle, setCurrentStyle] = useState('dark');
   const [selectedRegion, setSelectedRegion] = useState('assam');
+
+  // Emerging Factors panel state
+  const [efpOpen, setEfpOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -451,6 +456,15 @@ export default function App() {
         <div className="map-container">
           <div id="map" ref={mapContainer} />
 
+          {/* Emerging Factors toggle button */}
+          <button
+            className="efp-toggle-btn"
+            onClick={() => setEfpOpen(!efpOpen)}
+            title="Emerging Factors Panel"
+          >
+            🔬 {efpOpen ? 'Close' : 'Factors'}
+          </button>
+
           {/* Map Legend */}
           <div className="map-legend">
             <div className="map-legend__title">Risk Index Scale</div>
@@ -474,6 +488,27 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* Emerging Factors Panel */}
+        {(() => {
+          // Compute centroid from the first matching feature
+          const matchedFeature = features.find(f => f.properties.id === selectedCell?.id);
+          const coords = matchedFeature?.geometry?.coordinates?.[0];
+          let cLat = 26.15, cLon = 92.8;
+          if (coords && coords.length > 0) {
+            cLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+            cLon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+          }
+          return (
+            <EmergingFactorsPanel
+              lat={cLat}
+              lon={cLon}
+              locationName={selectedCell?.region || 'Selected Location'}
+              isOpen={efpOpen}
+              onClose={() => setEfpOpen(false)}
+            />
+          );
+        })()}
 
         {/* Detail Panel (Slide-in Inspect Overlay) */}
         {selectedCell && (
