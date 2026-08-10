@@ -415,19 +415,33 @@ def health():
 
 @app.route("/api/weather-status", methods=["GET"])
 def weather_status():
-    """Return the current weather system status and cache info."""
+    """Return the current weather system status, cache progress, and live vs fallback counts."""
     cached_days = set()
     cached_districts = set()
-    for (dist, day_off) in _live_weather_cache.keys():
+    live_count = 0
+    fallback_count = 0
+    for (dist, day_off), wdata in _live_weather_cache.items():
         cached_days.add(day_off)
         cached_districts.add(dist)
+        if wdata and wdata.get("_source") == "climatology-fallback":
+            fallback_count += 1
+        else:
+            live_count += 1
+
+    total_districts = sum(len(gdf) for gdf in all_state_gdfs.values())
+
     return jsonify({
         "weather_system": get_weather_system_status(),
+        "live_weather_enabled": LIVE_WEATHER_ENABLED,
         "cache": {
             "total_entries": len(_live_weather_cache),
             "cached_districts": len(cached_districts),
+            "total_districts": total_districts,
+            "live_count": live_count,
+            "fallback_count": fallback_count,
             "cached_day_offsets": sorted(cached_days),
-        }
+        },
+        "timestamp": datetime.now().isoformat()
     })
 
 

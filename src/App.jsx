@@ -218,6 +218,99 @@ function Dashboard() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // ── Toast Notification System ──────────────────────────────────
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
+  const weatherPollRef = useRef(null);
+  const lastWeatherStateRef = useRef({ districts: 0, live: 0, status: '' });
+
+  const addToast = useCallback((type, title, message, duration = 4000) => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => {
+      // Limit to 4 toasts max, remove oldest
+      const next = [...prev, { id, type, title, message, duration, createdAt: Date.now() }];
+      return next.slice(-4);
+    });
+    if (duration > 0) {
+      setTimeout(() => {
+        setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 350);
+      }, duration);
+    }
+    return id;
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 350);
+  }, []);
+
+  // ── Weather Status Poller (checks every 8s for live data progress) ──
+  useEffect(() => {
+    let stopped = false;
+    let initialNotified = false;
+
+    const pollWeatherStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE.replace('/api', '')}/api/weather-status`);
+        const data = await res.json();
+        const cache = data.cache || {};
+        const ws = data.weather_system || {};
+        const prev = lastWeatherStateRef.current;
+
+        // First connection notification
+        if (!initialNotified && cache.total_districts > 0) {
+          addToast('info', 'System Online', `Monitoring ${cache.total_districts} districts across ${data.live_weather_enabled ? 'Live Open-Meteo' : 'Climatology Baseline'}`, 5000);
+          initialNotified = true;
+        }
+
+        // Live weather progress updates
+        if (cache.cached_districts > prev.districts && cache.cached_districts < cache.total_districts) {
+          const pct = Math.round((cache.cached_districts / cache.total_districts) * 100);
+          addToast('live', 'Fetching Live Weather', `${cache.cached_districts}/${cache.total_districts} districts cached (${pct}%)`, 6000);
+        }
+
+        // Completion notification
+        if (cache.cached_districts >= cache.total_districts && prev.districts < cache.total_districts && cache.total_districts > 0) {
+          addToast('success', 'Live Weather Ready', `All ${cache.total_districts} districts calibrated • ${cache.live_count} live / ${cache.fallback_count} fallback`, 6000);
+        }
+
+        // Rate limit warning
+        if (ws.rate_limited && !prev.rateLimited) {
+          addToast('warning', 'API Rate Limited', 'Open-Meteo rate limit hit — using CHIRPS climatology fallback', 8000);
+        }
+
+        // Status changed
+        if (ws.status && ws.status !== prev.status && ws.status !== 'ok') {
+          addToast('warning', 'Weather System', ws.warning || `Status: ${ws.status}`, 6000);
+        }
+
+        lastWeatherStateRef.current = {
+          districts: cache.cached_districts || 0,
+          live: cache.live_count || 0,
+          status: ws.status || '',
+          rateLimited: ws.rate_limited || false
+        };
+      } catch (err) {
+        // Silent fail — backend may not be ready yet
+      }
+    };
+
+    // Initial check after 2s, then every 8s
+    const initialTimer = setTimeout(() => {
+      if (!stopped) pollWeatherStatus();
+    }, 2000);
+    weatherPollRef.current = setInterval(() => {
+      if (!stopped) pollWeatherStatus();
+    }, 8000);
+
+    return () => {
+      stopped = true;
+      clearTimeout(initialTimer);
+      clearInterval(weatherPollRef.current);
+    };
+  }, [addToast]);
+
   const selectedRegionRef = useRef(selectedRegion);
   selectedRegionRef.current = selectedRegion;
   const timelineDayRef = useRef(timelineDay);
@@ -227,6 +320,7 @@ function Dashboard() {
   const fetchRiskData = useCallback(async (region = selectedRegion, month = null, mode = viewMode, day = timelineDay) => {
     try {
       setIsLoading(true);
+      addToast('info', 'Updating Map', `Fetching ${mode === 'zones' ? '5km grid' : 'district'} predictions for ${getCalendarDate(day, 'full')}`, 3000);
       const monthParam = month !== null ? `month=${month}` : 'month=7';
       const dayParam = `day=${day}`;
       const endpointRegion = ['all_floods', 'assam', 'bihar', 'west_bengal', 'odisha'].includes(region) ? 'flood' : region;
@@ -260,14 +354,23 @@ function Dashboard() {
       if (data.features && data.features.length > 0) {
         setFeatures(data.features);
         setSelectedCell(data.features[0].properties);
+
+        // Determine data source breakdown
+        const liveCount = data.features.filter(f => f.properties?.data_source === 'live').length;
+        const histCount = data.features.length - liveCount;
+        const sourceLabel = liveCount > 0 ? `${liveCount} live · ${histCount} baseline` : 'Historical baseline';
+
+        addToast('success', 'Map Updated', `${data.features.length} ${mode === 'zones' ? 'cells' : 'districts'} rendered • ${sourceLabel}`, 4000);
+
         console.log(`✓ Loaded ${data.features.length} ${mode} (day=${day}) | total=${data.features.length}`);
       }
     } catch (err) {
       console.error('Failed to fetch risk data from API:', err);
+      addToast('warning', 'Connection Error', 'Failed to reach ML API server — retrying...', 5000);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedRegion, viewMode, timelineDay]);
+  }, [selectedRegion, viewMode, timelineDay, addToast]);
 
   // Re-fetch when region, viewMode, or timelineDay changes
   useEffect(() => {
@@ -894,6 +997,34 @@ function Dashboard() {
           {getCalendarDate(timelineDay, 'full')} · Day {timelineDay > 0 ? `+${timelineDay}` : timelineDay}
           <span className="timeline-bar__forecast-badge">{getDayBadge(timelineDay)}</span>
         </div>
+      </div>
+
+      {/* ── Toast Notification Container ── */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`toast toast--${toast.type} ${toast.exiting ? 'toast--exiting' : ''}`}
+            onClick={() => removeToast(toast.id)}
+          >
+            <div className="toast__icon">
+              {toast.type === 'info' && '📡'}
+              {toast.type === 'success' && '✓'}
+              {toast.type === 'warning' && '⚠'}
+              {toast.type === 'live' && <span className="toast__live-dot" />}
+            </div>
+            <div className="toast__body">
+              <div className="toast__title">{toast.title}</div>
+              <div className="toast__message">{toast.message}</div>
+            </div>
+            {toast.duration > 0 && (
+              <div
+                className="toast__progress"
+                style={{ width: '100%', animation: `toast-progress ${toast.duration}ms linear forwards` }}
+              />
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
